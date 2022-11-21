@@ -1,0 +1,6 @@
+domain: xscaling.dev
+layout:
+- go.kubebuilder.io/v3
+projectName: wing
+repo: github.com/xscaling/wing
+version: "3"
