@@ -1,0 +1,12 @@
+apiVersion: wing.xscaling.dev/v1
+kind: ReplicaAutoscaler
+metadata:
+  labels:
+    app.kubernetes.io/name: replicaautoscaler
+    app.kubernetes.io/instance: replicaautoscaler-sample
+    app.kubernetes.io/part-of: wing
+    app.kuberentes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: wing
+  name: replicaautoscaler-sample
+spec:
+  # TODO(user): Add fields here

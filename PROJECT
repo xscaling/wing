@@ -3,4 +3,14 @@ layout:
 - go.kubebuilder.io/v3
 projectName: wing
 repo: github.com/xscaling/wing
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: xscaling.dev
+  group: wing
+  kind: ReplicaAutoscaler
+  path: github.com/xscaling/wing/api/v1
+  version: v1
 version: "3"

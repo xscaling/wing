@@ -1,0 +1,27 @@
+# permissions for end users to view replicaautoscalers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: replicaautoscaler-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: wing
+    app.kubernetes.io/part-of: wing
+    app.kubernetes.io/managed-by: kustomize
+  name: replicaautoscaler-viewer-role
+rules:
+- apiGroups:
+  - wing.xscaling.dev
+  resources:
+  - replicaautoscalers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - wing.xscaling.dev
+  resources:
+  - replicaautoscalers/status
+  verbs:
+  - get
