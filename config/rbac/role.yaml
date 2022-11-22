@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - wing.xscaling.dev
+  resources:
+  - replicaautoscalers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - wing.xscaling.dev
+  resources:
+  - replicaautoscalers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - wing.xscaling.dev
+  resources:
+  - replicaautoscalers/status
+  verbs:
+  - get
+  - patch
+  - update

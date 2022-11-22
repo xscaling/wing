@@ -7,6 +7,10 @@ metadata:
     app.kubernetes.io/part-of: wing
     app.kuberentes.io/managed-by: kustomize
     app.kubernetes.io/created-by: wing
-  name: replicaautoscaler-sample
+  name: block-service-sample
+  namespace: dev-test
 spec:
-  # TODO(user): Add fields here
+  scaleTargetRef:
+    kind: Deployment
+    name: block
+  maxReplicas: 10
