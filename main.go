@@ -27,6 +27,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	// Register plugins
+	"github.com/xscaling/wing/core/engine"
 	_ "github.com/xscaling/wing/core/engine/plugin"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -97,11 +98,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	coreEngine, err := engine.New(mgr.GetConfig())
+	if err != nil {
+		setupLog.Error(err, "unable to start engine")
+		os.Exit(1)
+	}
 	if err = (&controllers.ReplicaAutoscalerReconciler{
 		Options: *controllerOptions,
+		Config:  mgr.GetConfig(),
 		Client:  mgr.GetClient(),
 		Cache:   mgr.GetCache(),
 		Scheme:  mgr.GetScheme(),
+		Engine:  coreEngine,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ReplicaAutoscaler")
 		os.Exit(1)

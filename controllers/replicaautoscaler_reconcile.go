@@ -18,15 +18,19 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	wingv1 "github.com/xscaling/wing/api/v1"
+	"github.com/xscaling/wing/core/engine"
+	"github.com/xscaling/wing/core/scheduling"
 	"github.com/xscaling/wing/utils"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -60,7 +64,7 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger, autoscaler *
 	}
 
 	// Working on autoscaling flow
-	return r.reconcileAutoscaling(logger, autoscaler)
+	return r.reconcileAutoscaling(logger, autoscaler, scale)
 }
 
 func (r *ReplicaAutoscalerReconciler) isTargetScalable(gvkr wingv1.GroupVersionKindResource, namespace, name string) (*autoscalingv1.Scale, error) {
@@ -92,7 +96,7 @@ func (r *ReplicaAutoscalerReconciler) isTargetScalable(gvkr wingv1.GroupVersionK
 
 func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler, gvkr wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale) error {
 	if scale.Spec.Replicas == autoscaler.Spec.MaxReplicas {
-		logger.V(4).Info("Nothing to scale")
+		logger.V(8).Info("Current replicas is expected, nothing todo")
 		return nil
 	}
 	logger.V(2).Info("Scaling replicas", "currentReplicas", scale.Spec.Replicas, "desireReplicas", autoscaler.Spec.MaxReplicas)
@@ -109,14 +113,45 @@ const (
 	DefaultScalingColdDown = time.Minute * 3
 )
 
-func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler) (requeue bool, err error) {
+func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler, scale *autoscalingv1.Scale) (requeue bool, err error) {
+	scaledObjectSelector, err := labels.Parse(scale.Status.Selector)
+	if err != nil {
+		logger.Error(err, "couldn't convert selector into a corresponding target selector object")
+		return true, err
+	}
+
 	// Checking cold-down
-	if time.Since(autoscaler.Status.LastScaleTime.Time) < DefaultScalingColdDown {
+	if autoscaler.Status.LastScaleTime != nil && time.Since(autoscaler.Status.LastScaleTime.Time) < DefaultScalingColdDown {
 		logger.V(2).Info("Still in scaling cold-down period")
 		return
 	}
-	// Collect metrics from providers
 
+	now := time.Now()
+
+	for _, target := range autoscaler.Spec.Targets {
+		scheduledTargetSettings, err := scheduling.GetScheduledSettingsRaw(now, target.Settings)
+		if err != nil {
+			logger.Error(err, "Failed to get scheduled target settings", "targetMetric", target.Metric)
+			return true, err
+		}
+		logger.V(8).Info("Get scheduled target settings", "settings", string(scheduledTargetSettings))
+
+		scaler, ok := r.Engine.GetScaler(target.Metric)
+		if !ok {
+			return false, fmt.Errorf("scaler `%s` not exists for target", target.Metric)
+		}
+		_, err = scaler.Get(engine.ScalerContext{
+			InformerFactory:      r.Engine.InformerFactory,
+			RawSettings:          scheduledTargetSettings,
+			Namespace:            autoscaler.Namespace,
+			ScaledObjectSelector: scaledObjectSelector,
+			CurrentReplicas:      scale.Spec.Replicas,
+		})
+		if err != nil {
+			logger.Error(err, "Failed to get result from scaler", "scaler", target.Metric)
+			return true, err
+		}
+	}
 	// Getting desired replicas from scaler
 
 	// Normalize replicas with autoscaler boundary

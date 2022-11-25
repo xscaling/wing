@@ -21,11 +21,13 @@ import (
 	"time"
 
 	wingv1 "github.com/xscaling/wing/api/v1"
+	"github.com/xscaling/wing/core/engine"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/scale"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -38,8 +40,11 @@ import (
 type ReplicaAutoscalerReconciler struct {
 	client.Client
 	cache.Cache
+
+	Config  *rest.Config
 	Scheme  *runtime.Scheme
 	Options Options
+	Engine  *engine.Engine
 
 	restMapper  meta.RESTMapper
 	scaleClient scale.ScalesGetter
