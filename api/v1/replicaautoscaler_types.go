@@ -24,6 +24,9 @@ import (
 
 // ReplicaAutoscalerSpec defines the desired state of ReplicaAutoscaler
 type ReplicaAutoscalerSpec struct {
+	// Replicator specified which replicator used for aggregating scalers output and
+	// make final scaling decision
+	Replicator *string `json:"replicator"`
 	// ScaleTargetRef points to the target resource to scale, and is used to the pods for which metrics
 	// should be collected, as well as to actually change the replica count.
 	ScaleTargetRef autoscalingv2.CrossVersionObjectReference `json:"scaleTargetRef"`

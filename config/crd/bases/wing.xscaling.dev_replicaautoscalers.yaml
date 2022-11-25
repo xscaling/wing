@@ -47,6 +47,10 @@ spec:
                   then the replicas will be set as `maxReplicas` without autoscaling.
                 format: int32
                 type: integer
+              replicator:
+                description: Replicator specified which replicator used for aggregating
+                  scalers output and make final scaling decision
+                type: string
               scaleTargetRef:
                 description: ScaleTargetRef points to the target resource to scale,
                   and is used to the pods for which metrics should be collected, as
@@ -114,6 +118,7 @@ spec:
                 type: array
             required:
             - maxReplicas
+            - replicator
             - scaleTargetRef
             type: object
           status:

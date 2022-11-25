@@ -60,11 +60,11 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger, autoscaler *
 	// A static replicas setting
 	if autoscaler.Spec.MinReplicas == nil {
 		logger.V(2).Info("Setting static replicas")
-		return true, r.scaleReplicas(logger, autoscaler, gvkr, scale)
+		return true, r.scaleReplicas(logger, gvkr, scale, autoscaler.Spec.MaxReplicas)
 	}
 
 	// Working on autoscaling flow
-	return r.reconcileAutoscaling(logger, autoscaler, scale)
+	return r.reconcileAutoscaling(logger, autoscaler, gvkr, scale)
 }
 
 func (r *ReplicaAutoscalerReconciler) isTargetScalable(gvkr wingv1.GroupVersionKindResource, namespace, name string) (*autoscalingv1.Scale, error) {
@@ -94,14 +94,14 @@ func (r *ReplicaAutoscalerReconciler) isTargetScalable(gvkr wingv1.GroupVersionK
 	return scale, nil
 }
 
-func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler, gvkr wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale) error {
-	if scale.Spec.Replicas == autoscaler.Spec.MaxReplicas {
+func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger, gvkr wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale, desiredReplicas int32) error {
+	if scale.Spec.Replicas == desiredReplicas {
 		logger.V(8).Info("Current replicas is expected, nothing todo")
 		return nil
 	}
-	logger.V(2).Info("Scaling replicas", "currentReplicas", scale.Spec.Replicas, "desireReplicas", autoscaler.Spec.MaxReplicas)
-	scale.Spec.Replicas = autoscaler.Spec.MaxReplicas
-	_, err := r.scaleClient.Scales(autoscaler.Namespace).Update(context.TODO(), gvkr.GroupResource(), scale, metav1.UpdateOptions{})
+	logger.V(2).Info("Scaling replicas", "currentReplicas", scale.Spec.Replicas, "desireReplicas", desiredReplicas)
+	scale.Spec.Replicas = desiredReplicas
+	_, err := r.scaleClient.Scales(scale.Namespace).Update(context.TODO(), gvkr.GroupResource(), scale, metav1.UpdateOptions{})
 	if err != nil {
 		logger.Error(err, "Failed to scale replicas")
 		return err
@@ -111,9 +111,11 @@ func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger, autoscal
 
 const (
 	DefaultScalingColdDown = time.Minute * 3
+
+	DefaultReplicator = "simple"
 )
 
-func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler, scale *autoscalingv1.Scale) (requeue bool, err error) {
+func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler, gvkr wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale) (requeue bool, err error) {
 	scaledObjectSelector, err := labels.Parse(scale.Status.Selector)
 	if err != nil {
 		logger.Error(err, "couldn't convert selector into a corresponding target selector object")
@@ -128,6 +130,12 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 
 	now := time.Now()
 
+	replicatorContext := engine.ReplicatorContext{
+		Autoscaler:    autoscaler,
+		Scale:         scale,
+		ScalersOutput: make(map[string]engine.ScalerOutput),
+	}
+
 	for _, target := range autoscaler.Spec.Targets {
 		scheduledTargetSettings, err := scheduling.GetScheduledSettingsRaw(now, target.Settings)
 		if err != nil {
@@ -140,7 +148,8 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 		if !ok {
 			return false, fmt.Errorf("scaler `%s` not exists for target", target.Metric)
 		}
-		_, err = scaler.Get(engine.ScalerContext{
+		// Getting desired replicas from scaler
+		scalerOutput, err := scaler.Get(engine.ScalerContext{
 			InformerFactory:      r.Engine.InformerFactory,
 			RawSettings:          scheduledTargetSettings,
 			Namespace:            autoscaler.Namespace,
@@ -151,9 +160,23 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 			logger.Error(err, "Failed to get result from scaler", "scaler", target.Metric)
 			return true, err
 		}
+		replicatorContext.ScalersOutput[target.Metric] = *scalerOutput
 	}
-	// Getting desired replicas from scaler
 
-	// Normalize replicas with autoscaler boundary
-	return false, nil
+	selectedReplicator := DefaultReplicator
+	if autoscaler.Spec.Replicator != nil {
+		selectedReplicator = *autoscaler.Spec.Replicator
+	}
+
+	replicator, ok := r.Engine.GetReplicator(selectedReplicator)
+	if !ok {
+		return false, fmt.Errorf("replicator `%s` not exists", selectedReplicator)
+	}
+
+	desireReplicas, err := replicator.GetDesiredReplicas(replicatorContext)
+	if err != nil {
+		return false, fmt.Errorf("failed to get desired replicas from `%s`: %v", selectedReplicator, err)
+	}
+	// FIXME(@oif): dead with unstable issue
+	return true, r.scaleReplicas(logger, gvkr, scale, desireReplicas)
 }

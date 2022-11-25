@@ -5,5 +5,5 @@ package engine
 var (
 	Scalers = []string{"cpu"}
 
-	Replicators = []string{}
+	Replicators = []string{"simple"}
 )
