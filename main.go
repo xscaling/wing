@@ -22,13 +22,16 @@ import (
 	"flag"
 	"os"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	wingv1 "github.com/xscaling/wing/api/v1"
+	"github.com/xscaling/wing/controllers"
 
 	// Register plugins
 	"github.com/xscaling/wing/core/engine"
 	_ "github.com/xscaling/wing/core/engine/plugin"
+
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// to ensure that exec-entrypoint and run can make use of them.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -36,9 +39,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	wingv1 "github.com/xscaling/wing/api/v1"
-	"github.com/xscaling/wing/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -74,6 +74,13 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOptions)))
 
+	// Load config
+	config := controllers.NewDefaultConfig()
+	if err := controllerOptions.LoadConfig(config); err != nil {
+		setupLog.Error(err, "unable to load config")
+		os.Exit(1)
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
@@ -104,12 +111,12 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.ReplicaAutoscalerReconciler{
-		Options: *controllerOptions,
-		Config:  mgr.GetConfig(),
-		Client:  mgr.GetClient(),
-		Cache:   mgr.GetCache(),
-		Scheme:  mgr.GetScheme(),
-		Engine:  coreEngine,
+		Config:           config.ReplicaAutoscalerControllerConfig,
+		KubernetesConfig: mgr.GetConfig(),
+		Client:           mgr.GetClient(),
+		Cache:            mgr.GetCache(),
+		Scheme:           mgr.GetScheme(),
+		Engine:           coreEngine,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ReplicaAutoscaler")
 		os.Exit(1)

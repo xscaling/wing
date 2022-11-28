@@ -41,10 +41,10 @@ type ReplicaAutoscalerReconciler struct {
 	client.Client
 	cache.Cache
 
-	Config  *rest.Config
-	Scheme  *runtime.Scheme
-	Options Options
-	Engine  *engine.Engine
+	Config           ReplicaAutoscalerControllerConfig
+	KubernetesConfig *rest.Config
+	Scheme           *runtime.Scheme
+	Engine           *engine.Engine
 
 	restMapper  meta.RESTMapper
 	scaleClient scale.ScalesGetter
@@ -85,9 +85,10 @@ func (r *ReplicaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ReplicaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	logger := mgr.GetLogger()
 	clientset, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
 	if err != nil {
-		log.Log.Error(err, "Not able to create Discovery clientset")
+		logger.Error(err, "Not able to create Discovery clientset")
 		return err
 	}
 	scaleKindResolver := scale.NewDiscoveryScaleKindResolver(clientset)
@@ -97,9 +98,10 @@ func (r *ReplicaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		scaleKindResolver,
 	)
 	r.restMapper = mgr.GetRESTMapper()
+	logger.Info("Setting up controller with manager", "reconcileConcurrent", r.Config.Workers)
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{
-			MaxConcurrentReconciles: r.Options.Workers,
+			MaxConcurrentReconciles: r.Config.Workers,
 		}).
 		For(&wingv1.ReplicaAutoscaler{}).
 		Complete(r)

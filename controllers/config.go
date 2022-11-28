@@ -16,31 +16,18 @@ limitations under the License.
 
 package controllers
 
-import (
-	"flag"
-	"os"
-
-	"gopkg.in/yaml.v3"
-)
-
-type Options struct {
-	Config string
+type Config struct {
+	ReplicaAutoscalerControllerConfig `yaml:",inline"`
 }
 
-func NewDefaultOptions() *Options {
-	return &Options{
-		Config: "wing.yaml",
+type ReplicaAutoscalerControllerConfig struct {
+	Workers int `yaml:"workers"`
+}
+
+func NewDefaultConfig() *Config {
+	return &Config{
+		ReplicaAutoscalerControllerConfig: ReplicaAutoscalerControllerConfig{
+			Workers: 3,
+		},
 	}
-}
-
-func (o *Options) BindFlags(fs *flag.FlagSet) {
-	fs.StringVar(&o.Config, "config", o.Config, "Wing config file path")
-}
-
-func (o *Options) LoadConfig(conf *Config) error {
-	configContent, err := os.ReadFile(o.Config)
-	if err != nil {
-		return err
-	}
-	return yaml.Unmarshal(configContent, conf)
 }
