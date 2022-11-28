@@ -38,12 +38,12 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 		return nil, errors.New("no pods found by selector for calculation")
 	}
 
-	resourceMetrics, _, err := s.kubernetesMetricsClient.GetResourceMetric(context.TODO(), corev1.ResourceMemory, ctx.Namespace, ctx.ScaledObjectSelector, "")
+	resourceMetrics, _, err := s.kubernetesMetricsClient.GetResourceMetric(context.TODO(), corev1.ResourceCPU, ctx.Namespace, ctx.ScaledObjectSelector, "")
 	if err != nil {
 		s.logger.Error(err, "Failed to get metrics")
 		return nil, err
 	}
-	desiredReplicas, _, _, err := tidyAndCalculateDesiredReplicas(resourceMetrics, pods, corev1.ResourceMemory, "block", int32(settings.Utilization), ctx.CurrentReplicas)
+	desiredReplicas, _, _, err := tidyAndCalculateDesiredReplicas(resourceMetrics, pods, corev1.ResourceCPU, "", int32(settings.Utilization), ctx.CurrentReplicas)
 	if err != nil {
 		return nil, err
 	}
