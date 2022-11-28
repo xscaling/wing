@@ -15,7 +15,8 @@ func init() {
 
 func setup(c engine.Controller) error {
 	r := &replicator{
-		logger: log.Log.WithName("simple"),
+		logger:                   log.Log.WithName("simple"),
+		historicalRecommendation: make(map[string][]timestampedRecommendation),
 	}
 
 	c.AddReplicator("simple", r)

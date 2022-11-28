@@ -177,6 +177,5 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 	if err != nil {
 		return false, fmt.Errorf("failed to get desired replicas from `%s`: %v", selectedReplicator, err)
 	}
-	// FIXME(@oif): dead with unstable issue
 	return true, r.scaleReplicas(logger, gvkr, scale, desireReplicas)
 }

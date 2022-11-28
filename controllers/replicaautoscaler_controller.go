@@ -61,7 +61,7 @@ type ReplicaAutoscalerReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *ReplicaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	logger.V(4).Info("Reconciling")
+	logger.V(5).Info("Reconciling")
 	replicaAutoscaler := &wingv1.ReplicaAutoscaler{}
 
 	if err := r.Cache.Get(ctx, req.NamespacedName, replicaAutoscaler); err != nil {
