@@ -1,4 +1,4 @@
-package cpu
+package memory
 
 import (
 	"github.com/xscaling/wing/core/engine"
@@ -9,14 +9,14 @@ import (
 )
 
 func init() {
-	engine.RegisterPlugin("cpu", engine.Plugin{
+	engine.RegisterPlugin("memory", engine.Plugin{
 		Endpoint:  engine.PluginEndpointScaler,
 		SetupFunc: setup,
 	})
 }
 
 func setup(c engine.Controller) error {
-	c.AddScaler("cpu", podresourcescaler.New(
-		corev1.ResourceCPU, c.GetKubernetesMetricsClient(), log.Log.WithName("scaler_cpu")))
+	c.AddScaler("memory", podresourcescaler.New(
+		corev1.ResourceMemory, c.GetKubernetesMetricsClient(), log.Log.WithName("scaler_memory")))
 	return nil
 }

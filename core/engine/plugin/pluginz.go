@@ -6,4 +6,5 @@ import (
 	// Include all plugins.
 	_ "github.com/xscaling/wing/plugins/replicator_simple"
 	_ "github.com/xscaling/wing/plugins/scaler_cpu"
+	_ "github.com/xscaling/wing/plugins/scaler_memory"
 )
