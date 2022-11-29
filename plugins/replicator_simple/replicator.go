@@ -10,9 +10,18 @@ import (
 )
 
 const (
-	// TODO(@oif): Make options configurable
-	downscaleStabilizationWindow = time.Second * 30
+	DefaultDownscaleStabilizationWindow = time.Second * 30
 )
+
+type Config struct {
+	DownscaleStabilizationWindow time.Duration `yaml:"downscaleStabilizationWindow"`
+}
+
+func NewDefaultConfig() *Config {
+	return &Config{
+		DownscaleStabilizationWindow: DefaultDownscaleStabilizationWindow,
+	}
+}
 
 type timestampedRecommendation struct {
 	timestamp time.Time
@@ -20,6 +29,7 @@ type timestampedRecommendation struct {
 }
 
 type replicator struct {
+	config Config
 	logger logr.Logger
 
 	historicalRecommendation map[string][]timestampedRecommendation
@@ -36,7 +46,7 @@ func (r *replicator) stabilizeRecommendation(key string, normalizedDesiredReplic
 	maxRecommendation := normalizedDesiredReplicas
 	foundOldSample := false
 	oldSampleIndex := 0
-	cutoff := time.Now().Add(-downscaleStabilizationWindow)
+	cutoff := time.Now().Add(-r.config.DownscaleStabilizationWindow)
 	for i, rec := range r.historicalRecommendation[key] {
 		if rec.timestamp.Before(cutoff) {
 			foundOldSample = true
