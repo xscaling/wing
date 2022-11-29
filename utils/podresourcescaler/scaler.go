@@ -18,20 +18,46 @@ type scaler struct {
 	kubernetesMetricsClient metrics.MetricsClient
 	resource                corev1.ResourceName
 	logger                  logr.Logger
+	config                  Config
 }
 
 var _ engine.Scaler = &scaler{}
+
+type Config struct {
+	UtilizationToleration float64 `yaml:"utilizationToleration"`
+}
+
+func (c Config) Validate() error {
+	if c.UtilizationToleration < DefaultUtilizationToleration || c.UtilizationToleration > 1 {
+		return errors.New("pod resource toleration is in valid, requires [0.05, 1]")
+	}
+	return nil
+}
+
+const (
+	DefaultUtilizationToleration = 0.05
+)
+
+func NewDefaultConfig() *Config {
+	return &Config{
+		UtilizationToleration: DefaultUtilizationToleration,
+	}
+}
 
 type Settings struct {
 	Utilization int `json:"utilization"`
 }
 
-func New(resource corev1.ResourceName, kubernetesMetricsClient metrics.MetricsClient, logger logr.Logger) *scaler {
+func New(logger logr.Logger, config Config, resource corev1.ResourceName, kubernetesMetricsClient metrics.MetricsClient) (*scaler, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
 	return &scaler{
+		config:                  config,
 		resource:                resource,
 		kubernetesMetricsClient: kubernetesMetricsClient,
 		logger:                  logger,
-	}
+	}, nil
 }
 
 func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
@@ -52,7 +78,7 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 		s.logger.Error(err, "Failed to get metrics")
 		return nil, err
 	}
-	desiredReplicas, _, _, err := tidyAndCalculateDesiredReplicas(resourceMetrics, pods, s.resource, "", int32(settings.Utilization), ctx.CurrentReplicas)
+	desiredReplicas, _, _, err := tidyAndCalculateDesiredReplicas(s.config.UtilizationToleration, resourceMetrics, pods, s.resource, "", int32(settings.Utilization), ctx.CurrentReplicas)
 	if err != nil {
 		return nil, err
 	}
@@ -61,11 +87,7 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 	}, nil
 }
 
-const (
-	utilizationToleration = 0.05
-)
-
-func tidyAndCalculateDesiredReplicas(resourceMetrics metrics.PodMetricsInfo, podList []*corev1.Pod,
+func tidyAndCalculateDesiredReplicas(utilizationToleration float64, resourceMetrics metrics.PodMetricsInfo, podList []*corev1.Pod,
 	resource corev1.ResourceName, container string, targetUtilization int32, currentReplicas int32) (replicaCount int32, utilization int32, rawUtilization int64, err error) {
 
 	readyPodCount, unreadyPods, missingPods, ignoredPods := groupPods(podList, resourceMetrics, resource, time.Second*10, time.Second*3)

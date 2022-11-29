@@ -105,7 +105,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	coreEngine, err := engine.New(mgr.GetConfig())
+	coreEngine, err := engine.New(mgr.GetConfig(), config.Plugins)
 	if err != nil {
 		setupLog.Error(err, "unable to start engine")
 		os.Exit(1)

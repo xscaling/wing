@@ -60,7 +60,7 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger, autoscaler *
 	// A static replicas setting
 	if autoscaler.Spec.MinReplicas == nil {
 		logger.V(2).Info("Setting static replicas")
-		return true, r.scaleReplicas(logger, gvkr, scale, autoscaler.Spec.MaxReplicas)
+		return true, r.scaleReplicas(logger, autoscaler, gvkr, scale, autoscaler.Spec.MaxReplicas)
 	}
 
 	// Working on autoscaling flow
@@ -94,7 +94,7 @@ func (r *ReplicaAutoscalerReconciler) isTargetScalable(gvkr wingv1.GroupVersionK
 	return scale, nil
 }
 
-func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger, gvkr wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale, desiredReplicas int32) error {
+func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler, gvkr wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale, desiredReplicas int32) error {
 	if scale.Spec.Replicas == desiredReplicas {
 		logger.V(8).Info("Current replicas is expected, nothing todo")
 		return nil
@@ -106,11 +106,19 @@ func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger, gvkr win
 		logger.Error(err, "Failed to scale replicas")
 		return err
 	}
+
+	now := metav1.NewTime(time.Now())
+	autoscaler.Status.LastScaleTime = &now
+
+	if err := r.Client.Status().Update(context.TODO(), autoscaler); err != nil {
+		logger.Error(err, "Failed to update autoscaler status")
+		return err
+	}
 	return nil
 }
 
 const (
-	DefaultScalingColdDown = time.Minute * 3
+	DefaultScalingColdDown = time.Second * 15
 
 	DefaultReplicator = "simple"
 )
@@ -177,5 +185,5 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 	if err != nil {
 		return false, fmt.Errorf("failed to get desired replicas from `%s`: %v", selectedReplicator, err)
 	}
-	return true, r.scaleReplicas(logger, gvkr, scale, desireReplicas)
+	return true, r.scaleReplicas(logger, autoscaler, gvkr, scale, desireReplicas)
 }

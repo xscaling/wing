@@ -2,7 +2,9 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/xscaling/wing/utils"
@@ -23,13 +25,15 @@ type engineProvisioner struct {
 	scalers       map[string]Scaler
 	replicators   map[string]Replicator
 	metricsClient metrics.MetricsClient
+	pluginConfigs map[string]utils.YamlRawMessage
 }
 
-func newEngineProvisioner(kubeConfig *rest.Config, RESTMapper *restmapper.DeferredDiscoveryRESTMapper) *engineProvisioner {
+func newEngineProvisioner(kubeConfig *rest.Config, RESTMapper *restmapper.DeferredDiscoveryRESTMapper, pluginConfigs map[string]utils.YamlRawMessage) *engineProvisioner {
 	ep := &engineProvisioner{
-		kubeConfig:  kubeConfig,
-		scalers:     make(map[string]Scaler),
-		replicators: make(map[string]Replicator),
+		kubeConfig:    kubeConfig,
+		scalers:       make(map[string]Scaler),
+		replicators:   make(map[string]Replicator),
+		pluginConfigs: pluginConfigs,
 	}
 	clientSet := utils.ClientOrDie(*ep.kubeConfig, "wing-engine")
 	apiVersionsGetter := custom_metrics.NewAvailableAPIsGetter(clientSet.Discovery())
@@ -58,6 +62,18 @@ func (p *engineProvisioner) AddScaler(name string, scaler Scaler) {
 	p.scalers[name] = scaler
 }
 
+func (p *engineProvisioner) GetPluginConfig(name string, configReceiver interface{}) (ok bool, err error) {
+	rawConfig, ok := p.pluginConfigs[name]
+	if !ok {
+		return false, nil
+	}
+	typeOfConfigReceiver := reflect.TypeOf(configReceiver)
+	if typeOfConfigReceiver == nil || typeOfConfigReceiver.Kind() != reflect.Pointer {
+		return true, errors.New("plugin config receiver must be a non-nil pointer")
+	}
+	return true, rawConfig.Unmarshal(configReceiver)
+}
+
 func (p *engineProvisioner) GetScaler(name string) (Scaler, bool) {
 	scaler, ok := p.scalers[name]
 	return scaler, ok
@@ -77,7 +93,7 @@ type Engine struct {
 	*InformerFactory
 }
 
-func New(kubeConfig *rest.Config) (*Engine, error) {
+func New(kubeConfig *rest.Config, pluginConfigs map[string]utils.YamlRawMessage) (*Engine, error) {
 	// Use a discovery client capable of being refreshed.
 	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(
 		cacheddiscovery.NewMemCacheClient(
@@ -87,7 +103,7 @@ func New(kubeConfig *rest.Config) (*Engine, error) {
 	}, 30*time.Second)
 
 	e := &Engine{
-		engineProvisioner: newEngineProvisioner(kubeConfig, restMapper),
+		engineProvisioner: newEngineProvisioner(kubeConfig, restMapper, pluginConfigs),
 		InformerFactory:   NewInformerFactory(utils.ClientOrDie(*kubeConfig, "wing-engine")),
 	}
 	e.InformerFactory.Run(make(<-chan struct{}))

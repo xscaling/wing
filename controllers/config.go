@@ -16,18 +16,24 @@ limitations under the License.
 
 package controllers
 
+import (
+	"github.com/xscaling/wing/utils"
+)
+
 type Config struct {
 	ReplicaAutoscalerControllerConfig `yaml:",inline"`
 }
 
 type ReplicaAutoscalerControllerConfig struct {
-	Workers int `yaml:"workers"`
+	Workers int                             `yaml:"workers"`
+	Plugins map[string]utils.YamlRawMessage `yaml:"plugins"`
 }
 
 func NewDefaultConfig() *Config {
 	return &Config{
 		ReplicaAutoscalerControllerConfig: ReplicaAutoscalerControllerConfig{
 			Workers: 3,
+			Plugins: make(map[string]utils.YamlRawMessage),
 		},
 	}
 }

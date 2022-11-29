@@ -1,6 +1,8 @@
 package cpu
 
 import (
+	"fmt"
+
 	"github.com/xscaling/wing/core/engine"
 	"github.com/xscaling/wing/utils/podresourcescaler"
 
@@ -8,15 +10,34 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	PluginName = "cpu"
+)
+
 func init() {
-	engine.RegisterPlugin("cpu", engine.Plugin{
+	engine.RegisterPlugin(PluginName, engine.Plugin{
 		Endpoint:  engine.PluginEndpointScaler,
 		SetupFunc: setup,
 	})
 }
 
+type PluginConfig struct {
+	podresourcescaler.Config `yaml:",inline"`
+}
+
 func setup(c engine.Controller) error {
-	c.AddScaler("cpu", podresourcescaler.New(
-		corev1.ResourceCPU, c.GetKubernetesMetricsClient(), log.Log.WithName("scaler_cpu")))
+	config := PluginConfig{
+		Config: *podresourcescaler.NewDefaultConfig(),
+	}
+	ok, err := c.GetPluginConfig(PluginName, &config)
+	if !ok || err != nil {
+		return fmt.Errorf("plugin config is required: ok %v err %v", ok, err)
+	}
+	podResourceScaler, err := podresourcescaler.New(log.Log.WithValues("plugin", PluginName), config.Config,
+		corev1.ResourceCPU, c.GetKubernetesMetricsClient())
+	if err != nil {
+		return err
+	}
+	c.AddScaler(PluginName, podResourceScaler)
 	return nil
 }

@@ -13,12 +13,13 @@ const (
 
 // TODO(@oif): With initialization context as well
 type Controller interface {
+	GetPluginConfig(name string, configReceiver interface{}) (ok bool, err error)
 	AddReplicator(name string, replicator Replicator)
 	AddScaler(name string, scaler Scaler)
 	GetKubernetesMetricsClient() metrics.MetricsClient
 }
 
-type PluginSetupFunc func(Controller) error
+type PluginSetupFunc func(c Controller) error
 
 type Plugin struct {
 	Endpoint  string
