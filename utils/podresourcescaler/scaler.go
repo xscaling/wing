@@ -114,7 +114,6 @@ func tidyAndCalculateDesiredReplicas(utilizationToleration float64, resourceMetr
 			// return the current replicas if the change would be too small
 			return currentReplicas, utilization, rawUtilization, nil
 		}
-
 		// if we don't have any unready or missing pods, we can calculate the new replica count now
 		return int32(math.Ceil(usageRatio * float64(readyPodCount))), utilization, rawUtilization, nil
 	}
