@@ -109,6 +109,7 @@ func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger, autoscal
 
 	now := metav1.NewTime(time.Now())
 	autoscaler.Status.LastScaleTime = &now
+	autoscaler.Status.DesiredReplicas = desiredReplicas
 
 	if err := r.Client.Status().Update(context.TODO(), autoscaler); err != nil {
 		logger.Error(err, "Failed to update autoscaler status")
@@ -133,7 +134,7 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 	// Checking cold-down
 	if autoscaler.Status.LastScaleTime != nil && time.Since(autoscaler.Status.LastScaleTime.Time) < DefaultScalingColdDown {
 		logger.V(2).Info("Still in scaling cold-down period")
-		return
+		return true, nil
 	}
 
 	now := time.Now()
