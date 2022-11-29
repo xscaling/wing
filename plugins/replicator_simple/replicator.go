@@ -62,8 +62,18 @@ func (r *replicator) stabilizeRecommendation(key string, normalizedDesiredReplic
 func (r *replicator) GetDesiredReplicas(ctx engine.ReplicatorContext) (int32, error) {
 	logger := r.logger.WithValues("namespace", ctx.Autoscaler.Namespace, "replicaAutoscaler", ctx.Autoscaler.Name)
 
-	desiredReplicas := ctx.Autoscaler.Status.CurrentReplicas
+	keyForAutoscaler := getUniqueKeyForAutoscaler(ctx.Autoscaler)
+	if r.historicalRecommendation[keyForAutoscaler] == nil {
+		r.historicalRecommendation[keyForAutoscaler] = []timestampedRecommendation{{
+			timestamp: time.Now(),
+			// Used expected replicas to avoid status pollution
+			replicas: ctx.Scale.Spec.Replicas,
+		}}
+	}
+
+	var desiredReplicas int32
 	for scaler, scalerOutput := range ctx.ScalersOutput {
+		logger.V(4).Info("Got scaler desired replicas", "scaler", scaler, "desiredReplicas", desiredReplicas)
 		if scalerOutput.DesiredReplicas > desiredReplicas {
 			desiredReplicas = scalerOutput.DesiredReplicas
 			logger.V(8).Info("Using scaler replicas", "replicas", desiredReplicas, "scaler", scaler)
@@ -74,7 +84,7 @@ func (r *replicator) GetDesiredReplicas(ctx engine.ReplicatorContext) (int32, er
 	} else if desiredReplicas > ctx.Autoscaler.Spec.MaxReplicas {
 		desiredReplicas = ctx.Autoscaler.Spec.MaxReplicas
 	} else {
-		stabilizedReplicas := r.stabilizeRecommendation(getUniqueKeyForAutoscaler(ctx.Autoscaler), desiredReplicas)
+		stabilizedReplicas := r.stabilizeRecommendation(keyForAutoscaler, desiredReplicas)
 		if stabilizedReplicas != desiredReplicas {
 			logger.V(2).Info("Stabilized desire replicas", "normalizedDesiredReplicas", desiredReplicas, "stabilizedReplicas", stabilizedReplicas)
 			desiredReplicas = stabilizedReplicas
