@@ -34,7 +34,7 @@ func setup(c engine.Controller) error {
 		return fmt.Errorf("plugin config is required: ok %v err %v", ok, err)
 	}
 	podResourceScaler, err := podresourcescaler.New(log.Log.WithValues("plugin", PluginName), config.Config,
-		corev1.ResourceCPU, c.GetKubernetesMetricsClient())
+		corev1.ResourceMemory, c.GetKubernetesMetricsClient())
 	if err != nil {
 		return err
 	}
