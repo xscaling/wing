@@ -82,7 +82,7 @@ type ReplicaAutoscalerStatus struct {
 	// lastScaleTime is the last time the ReplicaAutoscaler scaled,
 	// used by the autoscaler to control how often the replicas is changed.
 	// +optional
-	LastScaleTime *metav1.Time `json:"lastScaleTime,omitempty" protobuf:"bytes,2,opt,name=lastScaleTime"`
+	LastScaleTime *metav1.Time `json:"lastScaleTime,omitempty"`
 
 	// currentReplicas is current replicas of object managed by this autoscaler,
 	// as last seen by the autoscaler.
@@ -95,7 +95,7 @@ type ReplicaAutoscalerStatus struct {
 
 	// currentTargets indicates state of targets used by this autoscaler
 	// +optional
-	CurrentTargets []TargetStatus `json:"currentTargets"`
+	CurrentTargets []TargetStatus `json:"currentTargets,omitempty"`
 }
 
 // TargetStatus represents the running status of scaling target
