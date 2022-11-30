@@ -83,7 +83,7 @@ func (r *replicator) GetDesiredReplicas(ctx engine.ReplicatorContext) (int32, er
 
 	var desiredReplicas int32
 	for scaler, scalerOutput := range ctx.ScalersOutput {
-		logger.V(4).Info("Got scaler desired replicas", "scaler", scaler, "desiredReplicas", desiredReplicas)
+		logger.V(8).Info("Got scaler desired replicas", "scaler", scaler, "desiredReplicas", desiredReplicas)
 		if scalerOutput.DesiredReplicas > desiredReplicas {
 			desiredReplicas = scalerOutput.DesiredReplicas
 			logger.V(8).Info("Using scaler replicas", "replicas", desiredReplicas, "scaler", scaler)

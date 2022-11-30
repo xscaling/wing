@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	wingv1 "github.com/xscaling/wing/api/v1"
+
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -23,6 +25,7 @@ type ScalerContext struct {
 	Namespace            string
 	ScaledObjectSelector labels.Selector
 	CurrentReplicas      int32
+	AutoscalerStatus     *wingv1.ReplicaAutoscalerStatus
 }
 
 func (c ScalerContext) LoadSettings(receiver interface{}) error {

@@ -7,7 +7,6 @@ import (
 	"github.com/xscaling/wing/utils/podresourcescaler"
 
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -33,7 +32,7 @@ func setup(c engine.Controller) error {
 	if !ok || err != nil {
 		return fmt.Errorf("plugin config is required: ok %v err %v", ok, err)
 	}
-	podResourceScaler, err := podresourcescaler.New(log.Log.WithValues("plugin", PluginName), config.Config,
+	podResourceScaler, err := podresourcescaler.New(PluginName, config.Config,
 		corev1.ResourceMemory, c.GetKubernetesMetricsClient())
 	if err != nil {
 		return err

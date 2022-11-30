@@ -7,11 +7,15 @@ import (
 	"math"
 	"time"
 
+	wingv1 "github.com/xscaling/wing/api/v1"
 	"github.com/xscaling/wing/core/engine"
+	"github.com/xscaling/wing/utils"
 	"github.com/xscaling/wing/utils/metrics"
 
 	"github.com/go-logr/logr"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type scaler struct {
@@ -19,6 +23,7 @@ type scaler struct {
 	resource                corev1.ResourceName
 	logger                  logr.Logger
 	config                  Config
+	pluginName              string
 }
 
 var _ engine.Scaler = &scaler{}
@@ -48,7 +53,7 @@ type Settings struct {
 	Utilization int `json:"utilization"`
 }
 
-func New(logger logr.Logger, config Config, resource corev1.ResourceName, kubernetesMetricsClient metrics.MetricsClient) (*scaler, error) {
+func New(pluginName string, config Config, resource corev1.ResourceName, kubernetesMetricsClient metrics.MetricsClient) (*scaler, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -56,7 +61,8 @@ func New(logger logr.Logger, config Config, resource corev1.ResourceName, kubern
 		config:                  config,
 		resource:                resource,
 		kubernetesMetricsClient: kubernetesMetricsClient,
-		logger:                  logger,
+		logger:                  log.Log.WithValues("plugin", pluginName),
+		pluginName:              pluginName,
 	}, nil
 }
 
@@ -78,10 +84,17 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 		s.logger.Error(err, "Failed to get metrics")
 		return nil, err
 	}
-	desiredReplicas, _, _, err := tidyAndCalculateDesiredReplicas(s.config.UtilizationToleration, resourceMetrics, pods, s.resource, "", int32(settings.Utilization), ctx.CurrentReplicas)
+	desiredReplicas, averageUtilization, _, err := tidyAndCalculateDesiredReplicas(s.config.UtilizationToleration, resourceMetrics, pods, s.resource, "", int32(settings.Utilization), ctx.CurrentReplicas)
 	if err != nil {
 		return nil, err
 	}
+	utils.SetTargetStatus(ctx.AutoscalerStatus, wingv1.TargetStatus{
+		Target: s.pluginName,
+		Metric: autoscalingv2.MetricTarget{
+			Type:               autoscalingv2.UtilizationMetricType,
+			AverageUtilization: &averageUtilization,
+		},
+	})
 	return &engine.ScalerOutput{
 		DesiredReplicas: desiredReplicas,
 	}, nil

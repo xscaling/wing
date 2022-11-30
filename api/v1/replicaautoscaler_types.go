@@ -26,7 +26,8 @@ import (
 type ReplicaAutoscalerSpec struct {
 	// Replicator specified which replicator used for aggregating scalers output and
 	// make final scaling decision
-	Replicator *string `json:"replicator"`
+	// +optional
+	Replicator *string `json:"replicator,omitempty"`
 	// ScaleTargetRef points to the target resource to scale, and is used to the pods for which metrics
 	// should be collected, as well as to actually change the replica count.
 	ScaleTargetRef autoscalingv2.CrossVersionObjectReference `json:"scaleTargetRef"`
@@ -93,14 +94,33 @@ type ReplicaAutoscalerStatus struct {
 	// as last calculated by the autoscaler.
 	DesiredReplicas int32 `json:"desiredReplicas"`
 
-	// currentTargets indicates state of targets used by this autoscaler
+	// targets indicates state of targets used by this autoscaler
+	// +listType=atomic
+	// +patchMergeKey=target
+	// +patchStrategy=replace
 	// +optional
-	CurrentTargets []TargetStatus `json:"currentTargets,omitempty"`
+	Targets []TargetStatus `json:"targets,omitempty" patchStrategy:"replace" patchMergeKey:"target"`
+
+	// conditions is the set of conditions required for this autoscaler to scale its target,
+	// and indicates whether or not those conditions are met.
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	// +optional
+	Conditions []ReplicaAutoscalerCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" listType:"map"`
+}
+
+type ReplicaAutoscalerCondition struct {
+	Type string `json:"type"`
 }
 
 // TargetStatus represents the running status of scaling target
 type TargetStatus struct {
-	// TODO(@oif)
+	// Target indicates the source of status
+	Target string `json:"target"`
+	// Metric holds key values of scaler which used for calculate desired replicas
+	Metric autoscalingv2.MetricTarget ` json:"metric"`
 }
 
 //+kubebuilder:object:root=true

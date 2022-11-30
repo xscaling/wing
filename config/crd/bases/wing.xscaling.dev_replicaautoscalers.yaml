@@ -118,25 +118,31 @@ spec:
                 type: array
             required:
             - maxReplicas
-            - replicator
             - scaleTargetRef
             type: object
           status:
             description: ReplicaAutoscalerStatus defines the observed state of ReplicaAutoscaler
             properties:
+              conditions:
+                description: conditions is the set of conditions required for this
+                  autoscaler to scale its target, and indicates whether or not those
+                  conditions are met.
+                items:
+                  properties:
+                    type:
+                      type: string
+                  required:
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               currentReplicas:
                 description: currentReplicas is current replicas of object managed
                   by this autoscaler, as last seen by the autoscaler.
                 format: int32
                 type: integer
-              currentTargets:
-                description: currentTargets indicates state of targets used by this
-                  autoscaler
-                items:
-                  description: TargetStatus represents the running status of scaling
-                    target
-                  type: object
-                type: array
               desiredReplicas:
                 description: desiredReplicas is the desired replicas of object managed
                   by this autoscaler, as last calculated by the autoscaler.
@@ -153,6 +159,55 @@ spec:
                   by this autoscaler.
                 format: int64
                 type: integer
+              targets:
+                description: targets indicates state of targets used by this autoscaler
+                items:
+                  description: TargetStatus represents the running status of scaling
+                    target
+                  properties:
+                    metric:
+                      description: MetricTarget defines the target value, average
+                        value, or average utilization of a specific metric
+                      properties:
+                        averageUtilization:
+                          description: averageUtilization is the target value of the
+                            average of the resource metric across all relevant pods,
+                            represented as a percentage of the requested value of
+                            the resource for the pods. Currently only valid for Resource
+                            metric source type
+                          format: int32
+                          type: integer
+                        averageValue:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: averageValue is the target value of the average
+                            of the metric across all relevant pods (as a quantity)
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        type:
+                          description: type represents whether the metric type is
+                            Utilization, Value, or AverageValue
+                          type: string
+                        value:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: value is the target value of the metric (as
+                            a quantity).
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                      required:
+                      - type
+                      type: object
+                    target:
+                      type: string
+                  required:
+                  - metric
+                  - target
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
             required:
             - desiredReplicas
             type: object

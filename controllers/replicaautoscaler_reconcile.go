@@ -25,13 +25,14 @@ import (
 	"github.com/xscaling/wing/core/engine"
 	"github.com/xscaling/wing/core/scheduling"
 	"github.com/xscaling/wing/utils"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 
 	"github.com/go-logr/logr"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -60,7 +61,9 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger, autoscaler *
 		logger.Error(err, "Target(%s) is unscalable", gvkr.GVKString())
 		return false, nil
 	}
+	observingAutoscaler := autoscaler.DeepCopy()
 
+	autoscaler.Status.ObservedGeneration = &autoscaler.Generation
 	autoscaler.Status.CurrentReplicas = scale.Status.Replicas
 	// TODO(@oif): Init various
 
@@ -77,11 +80,16 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger, autoscaler *
 		return requeue, err
 	}
 
-	logger.V(8).Info("Updating ReplicaAutoscaler status")
-	err = r.Client.Status().Update(context.TODO(), autoscaler)
-	if err != nil {
-		logger.Error(err, "Failed to update autoscaler status")
-		return true, err
+	isEqual := utils.DeepEqual(autoscaler.Status, observingAutoscaler.Status)
+	if !isEqual {
+		logger.V(4).Info("Updating ReplicaAutoscaler status")
+		patch := runtimeclient.MergeFrom(observingAutoscaler.DeepCopy())
+		observingAutoscaler.Status = autoscaler.Status
+		err = r.Client.Status().Patch(context.TODO(), observingAutoscaler, patch)
+		if err != nil {
+			logger.Error(err, "Failed to update autoscaler status")
+			return true, err
+		}
 	}
 	return true, nil
 }
@@ -141,7 +149,7 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 
 	// Checking cold-down
 	if autoscaler.Status.LastScaleTime != nil && time.Since(autoscaler.Status.LastScaleTime.Time) < DefaultScalingColdDown {
-		logger.V(4).Info("Still in scaling cold-down period")
+		logger.V(8).Info("Still in scaling cold-down period")
 		return true, nil
 	}
 
@@ -172,6 +180,7 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 			Namespace:            autoscaler.Namespace,
 			ScaledObjectSelector: scaledObjectSelector,
 			CurrentReplicas:      scale.Spec.Replicas,
+			AutoscalerStatus:     &autoscaler.Status,
 		})
 		if err != nil {
 			logger.Error(err, "Failed to get result from scaler", "scaler", target.Metric)
