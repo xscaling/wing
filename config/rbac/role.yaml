@@ -6,6 +6,28 @@ metadata:
   name: commander-role
 rules:
 - apiGroups:
+  - '*'
+  resources:
+  - '*/scale'
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - metrics.k8s.io
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - wing.xscaling.dev
   resources:
   - replicaautoscalers
