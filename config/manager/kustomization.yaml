@@ -1,2 +1,12 @@
 resources:
 - manager.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: controller
+  newName: swr.cn-north-4.myhuaweicloud.com/wing/controller
+  newTag: testflight-1130
+configMapGenerator:
+- files:
+  - commander_config.yaml
+  name: commander-config

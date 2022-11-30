@@ -166,8 +166,8 @@ spec:
                     target
                   properties:
                     metric:
-                      description: MetricTarget defines the target value, average
-                        value, or average utilization of a specific metric
+                      description: Metric holds key values of scaler which used for
+                        calculate desired replicas
                       properties:
                         averageUtilization:
                           description: averageUtilization is the target value of the
@@ -201,6 +201,7 @@ spec:
                       - type
                       type: object
                     target:
+                      description: Target indicates the source of status
                       type: string
                   required:
                   - metric

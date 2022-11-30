@@ -1,0 +1,8 @@
+workers: 3
+plugins:
+  cpu:
+    utilizationToleration: 0.05
+  memory:
+    utilizationToleration: 0.05
+  # using default config
+  simple: {}

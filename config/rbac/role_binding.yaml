@@ -3,17 +3,17 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     app.kubernetes.io/name: clusterrolebinding
-    app.kubernetes.io/instance: manager-rolebinding
+    app.kubernetes.io/instance: commander-rolebinding
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: wing
     app.kubernetes.io/part-of: wing
     app.kubernetes.io/managed-by: kustomize
-  name: manager-rolebinding
+  name: commander-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: manager-role
+  name: commander-role
 subjects:
-- kind: ServiceAccount
-  name: controller-manager
-  namespace: system
+  - kind: ServiceAccount
+    name: commander
+    namespace: system
