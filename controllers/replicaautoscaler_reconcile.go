@@ -122,6 +122,8 @@ func (r *ReplicaAutoscalerReconciler) isTargetScalable(gvkr wingv1.GroupVersionK
 }
 
 func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler, gvkr wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale, desiredReplicas int32) error {
+	autoscaler.Status.DesiredReplicas = desiredReplicas
+
 	if scale.Spec.Replicas == desiredReplicas {
 		logger.V(8).Info("Current replicas is expected, nothing todo")
 		return nil
@@ -136,7 +138,6 @@ func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger, autoscal
 
 	now := metav1.NewTime(time.Now())
 	autoscaler.Status.LastScaleTime = &now
-	autoscaler.Status.DesiredReplicas = desiredReplicas
 	return nil
 }
 
