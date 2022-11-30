@@ -15,7 +15,26 @@ spec:
     singular: replicaautoscaler
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.scaleTargetRef.name
+      name: Reference
+      type: string
+    - jsonPath: .spec.minReplicas
+      name: Min
+      type: string
+    - jsonPath: .spec.maxReplicas
+      name: Max
+      type: string
+    - jsonPath: .status.currentReplicas
+      name: Replicas
+      type: string
+    - jsonPath: .status.targets[*].target
+      name: Targets
+      type: string
+    - jsonPath: .status.lastScaleTime
+      name: LastScaleTime
+      type: string
+    name: v1
     schema:
       openAPIV3Schema:
         description: ReplicaAutoscaler is the Schema for the replicaautoscalers API

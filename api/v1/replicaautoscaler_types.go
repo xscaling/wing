@@ -125,6 +125,12 @@ type TargetStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Reference",type=string,JSONPath=`.spec.scaleTargetRef.name`
+//+kubebuilder:printcolumn:name="Min",type=string,JSONPath=`.spec.minReplicas`
+//+kubebuilder:printcolumn:name="Max",type=string,JSONPath=`.spec.maxReplicas`
+//+kubebuilder:printcolumn:name="Replicas",type=string,JSONPath=`.status.currentReplicas`
+//+kubebuilder:printcolumn:name="Targets",type=string,JSONPath=`.status.targets[*].target`
+//+kubebuilder:printcolumn:name="LastScaleTime",type=string,JSONPath=`.status.lastScaleTime`
 
 // ReplicaAutoscaler is the Schema for the replicaautoscalers API
 type ReplicaAutoscaler struct {
