@@ -8,6 +8,7 @@ import (
 	"go/format"
 	"log"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -113,8 +114,8 @@ func genDirectives(file, pack string, pluginsMapping map[string]map[string]strin
 
 	if err := formatAndWrite(file, fmt.Sprintf(outs,
 		header, pack,
-		strings.Join(scalers, ","),
-		strings.Join(replicators, `,`),
+		strings.Join(sort.StringSlice(scalers), ","),
+		strings.Join(sort.StringSlice(replicators), `,`),
 	)); err != nil {
 		log.Fatalf("Failed to format and write: %q", err)
 	}
