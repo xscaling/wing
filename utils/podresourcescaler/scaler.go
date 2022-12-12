@@ -102,7 +102,7 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 }
 
 func tidyAndCalculateDesiredReplicas(utilizationToleration float64, resourceMetrics metrics.PodMetricsInfo, podList []*corev1.Pod,
-	resource corev1.ResourceName, container string, targetUtilization int32, currentReplicas int32) (replicaCount int32, utilization int32, rawUtilization int64, err error) {
+	resource corev1.ResourceName, container string, targetUtilization int32, currentReplicas int32) (replicaCount int32, utilization int32, rawAverageValue int64, err error) {
 
 	readyPodCount, unreadyPods, missingPods, ignoredPods := groupPods(podList, resourceMetrics, resource, time.Second*10, time.Second*3)
 	removeMetricsForPods(resourceMetrics, ignoredPods)
@@ -116,7 +116,7 @@ func tidyAndCalculateDesiredReplicas(utilizationToleration float64, resourceMetr
 		return 0, 0, 0, fmt.Errorf("did not receive metrics for any ready pods")
 	}
 
-	usageRatio, utilization, rawUtilization, err := metrics.GetResourceUtilizationRatio(resourceMetrics, requests, targetUtilization)
+	usageRatio, utilization, rawAverageValue, err := metrics.GetResourceUtilizationRatio(resourceMetrics, requests, targetUtilization)
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -126,10 +126,10 @@ func tidyAndCalculateDesiredReplicas(utilizationToleration float64, resourceMetr
 	if !rebalanceIgnored && len(missingPods) == 0 {
 		if math.Abs(1.0-usageRatio) <= utilizationToleration {
 			// return the current replicas if the change would be too small
-			return currentReplicas, utilization, rawUtilization, nil
+			return currentReplicas, utilization, rawAverageValue, nil
 		}
 		// if we don't have any unready or missing pods, we can calculate the new replica count now
-		return int32(math.Ceil(usageRatio * float64(readyPodCount))), utilization, rawUtilization, nil
+		return int32(math.Ceil(usageRatio * float64(readyPodCount))), utilization, rawAverageValue, nil
 	}
 
 	if len(missingPods) > 0 {
@@ -156,22 +156,22 @@ func tidyAndCalculateDesiredReplicas(utilizationToleration float64, resourceMetr
 	// re-run the utilization calculation with our new numbers
 	newUsageRatio, _, _, err := metrics.GetResourceUtilizationRatio(resourceMetrics, requests, targetUtilization)
 	if err != nil {
-		return 0, utilization, rawUtilization, err
+		return 0, utilization, rawAverageValue, err
 	}
 
 	if math.Abs(1.0-newUsageRatio) <= utilizationToleration || (usageRatio < 1.0 && newUsageRatio > 1.0) || (usageRatio > 1.0 && newUsageRatio < 1.0) {
 		// return the current replicas if the change would be too small,
 		// or if the new usage ratio would cause a change in scale direction
-		return currentReplicas, utilization, rawUtilization, nil
+		return currentReplicas, utilization, rawAverageValue, nil
 	}
 
 	newReplicas := int32(math.Ceil(newUsageRatio * float64(len(resourceMetrics))))
 	if (newUsageRatio < 1.0 && newReplicas > currentReplicas) || (newUsageRatio > 1.0 && newReplicas < currentReplicas) {
 		// return the current replicas if the change of metrics length would cause a change in scale direction
-		return currentReplicas, utilization, rawUtilization, nil
+		return currentReplicas, utilization, rawAverageValue, nil
 	}
 
 	// return the result, where the number of replicas considered is
 	// however many replicas factored into our calculation
-	return newReplicas, utilization, rawUtilization, nil
+	return newReplicas, utilization, rawAverageValue, nil
 }
