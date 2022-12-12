@@ -119,6 +119,8 @@ type ReplicaAutoscalerCondition struct {
 type TargetStatus struct {
 	// Target indicates the source of status
 	Target string `json:"target"`
+	// Target desired replicas calculated by giving settings
+	DesiredReplicas int32 `json:"desireReplicas"`
 	// Metric holds key values of scaler which used for calculate desired replicas
 	Metric autoscalingv2.MetricTarget ` json:"metric"`
 }

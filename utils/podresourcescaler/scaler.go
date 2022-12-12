@@ -89,7 +89,8 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 		return nil, err
 	}
 	utils.SetTargetStatus(ctx.AutoscalerStatus, wingv1.TargetStatus{
-		Target: s.pluginName,
+		Target:          s.pluginName,
+		DesiredReplicas: desiredReplicas,
 		Metric: autoscalingv2.MetricTarget{
 			Type:               autoscalingv2.UtilizationMetricType,
 			AverageUtilization: &averageUtilization,

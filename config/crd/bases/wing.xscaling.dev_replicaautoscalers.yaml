@@ -184,6 +184,10 @@ spec:
                   description: TargetStatus represents the running status of scaling
                     target
                   properties:
+                    desireReplicas:
+                      description: Target desired replicas calculated by giving settings
+                      format: int32
+                      type: integer
                     metric:
                       description: Metric holds key values of scaler which used for
                         calculate desired replicas
@@ -223,6 +227,7 @@ spec:
                       description: Target indicates the source of status
                       type: string
                   required:
+                  - desireReplicas
                   - metric
                   - target
                   type: object
