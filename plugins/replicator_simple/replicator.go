@@ -1,12 +1,14 @@
 package simple
 
 import (
+	"strings"
 	"time"
 
 	wingv1 "github.com/xscaling/wing/api/v1"
 	"github.com/xscaling/wing/core/engine"
 
 	"github.com/go-logr/logr"
+	"k8s.io/client-go/tools/record"
 )
 
 const (
@@ -32,6 +34,7 @@ type replicator struct {
 	config Config
 	logger logr.Logger
 
+	eventRecorder            record.EventRecorder
 	historicalRecommendation map[string][]timestampedRecommendation
 }
 
@@ -81,14 +84,23 @@ func (r *replicator) GetDesiredReplicas(ctx engine.ReplicatorContext) (int32, er
 		}}
 	}
 
-	var desiredReplicas int32
+	var (
+		desiredReplicas       int32
+		triggerScaleUpScalers []string
+	)
 	for scaler, scalerOutput := range ctx.ScalersOutput {
-		logger.V(8).Info("Got scaler desired replicas", "scaler", scaler, "desiredReplicas", desiredReplicas)
+		logger.V(8).Info("Got scaler desired replicas",
+			"scaler", scaler, "selectedDesiredReplicas", desiredReplicas, "desiredReplicas", scalerOutput.DesiredReplicas)
 		if scalerOutput.DesiredReplicas > desiredReplicas {
 			desiredReplicas = scalerOutput.DesiredReplicas
 			logger.V(8).Info("Using scaler replicas", "replicas", desiredReplicas, "scaler", scaler)
 		}
+		if scalerOutput.DesiredReplicas > ctx.Scale.Spec.Replicas {
+			// Want scale up
+			triggerScaleUpScalers = append(triggerScaleUpScalers, scaler)
+		}
 	}
+
 	if desiredReplicas < *ctx.Autoscaler.Spec.MinReplicas {
 		desiredReplicas = *ctx.Autoscaler.Spec.MinReplicas
 	} else if desiredReplicas > ctx.Autoscaler.Spec.MaxReplicas {
@@ -96,12 +108,20 @@ func (r *replicator) GetDesiredReplicas(ctx engine.ReplicatorContext) (int32, er
 	} else {
 		stabilizedReplicas := r.stabilizeRecommendation(keyForAutoscaler, desiredReplicas)
 		if stabilizedReplicas != desiredReplicas {
-			logger.V(2).Info("Stabilized desire replicas", "normalizedDesiredReplicas", desiredReplicas, "stabilizedReplicas", stabilizedReplicas)
+			logger.V(2).Info("Stabilized desire replicas",
+				"normalizedDesiredReplicas", desiredReplicas, "stabilizedReplicas", stabilizedReplicas)
 			desiredReplicas = stabilizedReplicas
 		}
 	}
 
 	if ctx.Scale.Spec.Replicas != desiredReplicas {
+		if ctx.Scale.Spec.Replicas > desiredReplicas {
+			// ScaleUp
+			r.eventRecorder.Eventf(ctx.Autoscaler, wingv1.EventTypeNormal, wingv1.ReasonScaling, "New replica %d; %s are requiring scale-up", desiredReplicas, strings.Join(triggerScaleUpScalers, ","))
+		} else {
+			// ScaleDown
+			r.eventRecorder.Eventf(ctx.Autoscaler, wingv1.EventTypeNormal, wingv1.ReasonScaling, "New replica %d; all resources are below target trying to scale-down")
+		}
 		logger.Info("Decide to scale target replicas", "from", ctx.Scale.Spec.Replicas, "to", desiredReplicas)
 	}
 	return desiredReplicas, nil

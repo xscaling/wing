@@ -9,15 +9,16 @@ import (
 
 	"github.com/xscaling/wing/utils"
 	"github.com/xscaling/wing/utils/metrics"
-	cacheddiscovery "k8s.io/client-go/discovery/cached"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"k8s.io/apimachinery/pkg/util/wait"
+	cacheddiscovery "k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/record"
 	resourceclient "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 	"k8s.io/metrics/pkg/client/custom_metrics"
 	"k8s.io/metrics/pkg/client/external_metrics"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type engineProvisioner struct {
@@ -26,14 +27,17 @@ type engineProvisioner struct {
 	replicators   map[string]Replicator
 	metricsClient metrics.MetricsClient
 	pluginConfigs map[string]utils.YamlRawMessage
+	eventRecorder record.EventRecorder
 }
 
-func newEngineProvisioner(kubeConfig *rest.Config, RESTMapper *restmapper.DeferredDiscoveryRESTMapper, pluginConfigs map[string]utils.YamlRawMessage) *engineProvisioner {
+func newEngineProvisioner(kubeConfig *rest.Config, RESTMapper *restmapper.DeferredDiscoveryRESTMapper,
+	pluginConfigs map[string]utils.YamlRawMessage, eventRecorder record.EventRecorder) *engineProvisioner {
 	ep := &engineProvisioner{
 		kubeConfig:    kubeConfig,
 		scalers:       make(map[string]Scaler),
 		replicators:   make(map[string]Replicator),
 		pluginConfigs: pluginConfigs,
+		eventRecorder: eventRecorder,
 	}
 	clientSet := utils.ClientOrDie(*ep.kubeConfig, "wing-engine")
 	apiVersionsGetter := custom_metrics.NewAvailableAPIsGetter(clientSet.Discovery())
@@ -88,12 +92,16 @@ func (p *engineProvisioner) GetKubernetesMetricsClient() metrics.MetricsClient {
 	return p.metricsClient
 }
 
+func (p *engineProvisioner) GetEventRecorder() record.EventRecorder {
+	return p.eventRecorder
+}
+
 type Engine struct {
 	*engineProvisioner
 	*InformerFactory
 }
 
-func New(kubeConfig *rest.Config, pluginConfigs map[string]utils.YamlRawMessage) (*Engine, error) {
+func New(kubeConfig *rest.Config, pluginConfigs map[string]utils.YamlRawMessage, eventRecorder record.EventRecorder) (*Engine, error) {
 	// Use a discovery client capable of being refreshed.
 	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(
 		cacheddiscovery.NewMemCacheClient(
@@ -103,7 +111,7 @@ func New(kubeConfig *rest.Config, pluginConfigs map[string]utils.YamlRawMessage)
 	}, 30*time.Second)
 
 	e := &Engine{
-		engineProvisioner: newEngineProvisioner(kubeConfig, restMapper, pluginConfigs),
+		engineProvisioner: newEngineProvisioner(kubeConfig, restMapper, pluginConfigs, eventRecorder),
 		InformerFactory:   NewInformerFactory(utils.ClientOrDie(*kubeConfig, "wing-engine")),
 	}
 	e.InformerFactory.Run(make(<-chan struct{}))

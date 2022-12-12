@@ -29,6 +29,7 @@ func setup(c engine.Controller) error {
 	r := &replicator{
 		config:                   *config,
 		logger:                   log.Log.WithName(PluginName),
+		eventRecorder:            c.GetEventRecorder(),
 		historicalRecommendation: make(map[string][]timestampedRecommendation),
 	}
 

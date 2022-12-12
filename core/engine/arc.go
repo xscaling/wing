@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/xscaling/wing/utils/metrics"
+
+	"k8s.io/client-go/tools/record"
 )
 
 const (
@@ -17,6 +19,7 @@ type Controller interface {
 	AddReplicator(name string, replicator Replicator)
 	AddScaler(name string, scaler Scaler)
 	GetKubernetesMetricsClient() metrics.MetricsClient
+	GetEventRecorder() record.EventRecorder
 }
 
 type PluginSetupFunc func(c Controller) error

@@ -105,7 +105,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	coreEngine, err := engine.New(mgr.GetConfig(), config.Plugins)
+	eventRecorder := mgr.GetEventRecorderFor("wing")
+	coreEngine, err := engine.New(mgr.GetConfig(), config.Plugins, eventRecorder)
 	if err != nil {
 		setupLog.Error(err, "unable to start engine")
 		os.Exit(1)
@@ -116,6 +117,7 @@ func main() {
 		Client:           mgr.GetClient(),
 		Cache:            mgr.GetCache(),
 		Scheme:           mgr.GetScheme(),
+		EventRecorder:    eventRecorder,
 		Engine:           coreEngine,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ReplicaAutoscaler")
