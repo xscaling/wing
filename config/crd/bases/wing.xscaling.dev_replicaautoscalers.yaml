@@ -34,6 +34,9 @@ spec:
     - jsonPath: .status.lastScaleTime
       name: LastScaleTime
       type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -148,15 +151,30 @@ spec:
                   conditions are met.
                 items:
                   properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status
+                        to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message indicating details about
+                        the transition.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
                     type:
+                      description: Type of condition
                       type: string
                   required:
+                  - lastTransitionTime
+                  - status
                   - type
                   type: object
                 type: array
-                x-kubernetes-list-map-keys:
-                - type
-                x-kubernetes-list-type: map
               currentReplicas:
                 description: currentReplicas is current replicas of object managed
                   by this autoscaler, as last seen by the autoscaler.

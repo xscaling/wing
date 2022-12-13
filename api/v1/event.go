@@ -8,5 +8,5 @@ const (
 )
 
 const (
-	ReasonScaling = "Scaling"
+	EventReasonScaling = "Scaling"
 )

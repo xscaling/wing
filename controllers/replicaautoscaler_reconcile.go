@@ -76,9 +76,20 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger, autoscaler *
 		requeue, err = r.reconcileAutoscaling(logger, autoscaler, gvkr, scale)
 	}
 	if err != nil {
+		autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
+			Type:    wingv1.ConditionReady,
+			Status:  metav1.ConditionFalse,
+			Reason:  "FailedToScale",
+			Message: fmt.Sprintf("Failed to scale target: %s", err),
+		})
 		logger.Error(err, "Failed to scale target")
 		return requeue, err
 	}
+
+	autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
+		Type:   wingv1.ConditionReady,
+		Status: metav1.ConditionTrue,
+	})
 
 	isEqual := utils.DeepEqual(autoscaler.Status, observingAutoscaler.Status)
 	if !isEqual {
@@ -207,5 +218,31 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 		return false, fmt.Errorf("failed to get desired replicas from `%s`: %v", selectedReplicator, err)
 	}
 	logger.V(4).Info("Replicator calculated desired replicas", "desiredReplicas", desireReplicas)
+
+	// Final normalize desired replicas
+	var (
+		scalingLimitedReason = ""
+	)
+	if desireReplicas > autoscaler.Spec.MaxReplicas {
+		desireReplicas = autoscaler.Spec.MaxReplicas
+		scalingLimitedReason = "ReachMaxReplicas"
+	} else if desireReplicas < *autoscaler.Spec.MinReplicas {
+		desireReplicas = *autoscaler.Spec.MinReplicas
+		scalingLimitedReason = "ReachMinimalReplicas"
+	}
+
+	if scalingLimitedReason != "" {
+		autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
+			Type:   wingv1.ConditionScaleLimited,
+			Status: metav1.ConditionTrue,
+			Reason: scalingLimitedReason,
+		})
+	} else {
+		autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
+			Type:   wingv1.ConditionScaleLimited,
+			Status: metav1.ConditionFalse,
+		})
+	}
+
 	return true, r.scaleReplicas(logger, autoscaler, gvkr, scale, desireReplicas)
 }

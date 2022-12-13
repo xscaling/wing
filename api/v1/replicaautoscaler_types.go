@@ -105,14 +105,8 @@ type ReplicaAutoscalerStatus struct {
 	// and indicates whether or not those conditions are met.
 	// +patchMergeKey=type
 	// +patchStrategy=merge
-	// +listType=map
-	// +listMapKey=type
 	// +optional
-	Conditions []ReplicaAutoscalerCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" listType:"map"`
-}
-
-type ReplicaAutoscalerCondition struct {
-	Type string `json:"type"`
+	Conditions Conditions `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" listType:"map"`
 }
 
 // TargetStatus represents the running status of scaling target
@@ -133,6 +127,7 @@ type TargetStatus struct {
 //+kubebuilder:printcolumn:name="Replicas",type=string,JSONPath=`.status.currentReplicas`
 //+kubebuilder:printcolumn:name="Targets",type=string,JSONPath=`.status.targets[*].target`
 //+kubebuilder:printcolumn:name="LastScaleTime",type=string,JSONPath=`.status.lastScaleTime`
+//+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
 
 // ReplicaAutoscaler is the Schema for the replicaautoscalers API
 type ReplicaAutoscaler struct {
