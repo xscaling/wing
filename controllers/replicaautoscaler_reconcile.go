@@ -140,12 +140,13 @@ func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger, autoscal
 		return nil
 	}
 	logger.V(2).Info("Scaling replicas", "currentReplicas", scale.Spec.Replicas, "desireReplicas", desiredReplicas)
-	scale.Spec.Replicas = desiredReplicas
-	_, err := r.scaleClient.Scales(scale.Namespace).Update(context.TODO(), gvkr.GroupResource(), scale, metav1.UpdateOptions{})
-	if err != nil {
-		logger.Error(err, "Failed to scale replicas")
-		return err
-	}
+	// FIXME: Dry run for release environment
+	// scale.Spec.Replicas = desiredReplicas
+	// _, err := r.scaleClient.Scales(scale.Namespace).Update(context.TODO(), gvkr.GroupResource(), scale, metav1.UpdateOptions{})
+	// if err != nil {
+	// 	logger.Error(err, "Failed to scale replicas")
+	// 	return err
+	// }
 
 	now := metav1.NewTime(time.Now())
 	autoscaler.Status.LastScaleTime = &now
