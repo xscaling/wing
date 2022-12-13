@@ -31,3 +31,14 @@ func (gvkr GroupVersionKindResource) GroupResource() schema.GroupResource {
 func (gvkr GroupVersionKindResource) GVKString() string {
 	return gvkr.Group + "/" + gvkr.Version + "." + gvkr.Kind
 }
+
+// CrossVersionObjectReference contains enough information to let you identify the referred resource.
+type CrossVersionObjectReference struct {
+	// Kind of the referent; More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
+	Kind string `json:"kind"`
+	// Name of the referent; More info: http://kubernetes.io/docs/user-guide/identifiers#names
+	Name string `json:"name"`
+	// API version of the referent
+	// +optional
+	APIVersion string `json:"apiVersion,omitempty"`
+}

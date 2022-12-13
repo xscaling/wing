@@ -6,7 +6,6 @@ import (
 
 	wingv1 "github.com/xscaling/wing/api/v1"
 
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -21,7 +20,7 @@ type Scaler interface {
 type ScalerContext struct {
 	*InformerFactory
 	RawSettings          []byte
-	ScaleTargetRef       autoscalingv2.CrossVersionObjectReference
+	ScaleTargetRef       wingv1.CrossVersionObjectReference
 	Namespace            string
 	ScaledObjectSelector labels.Selector
 	CurrentReplicas      int32

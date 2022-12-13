@@ -17,10 +17,42 @@ limitations under the License.
 package v1
 
 import (
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
+
+// MetricTargetType specifies the type of metric being targeted, and should be either
+// "Value", "AverageValue", or "Utilization"
+type MetricTargetType string
+
+const (
+	// UtilizationMetricType declares a MetricTarget is an AverageUtilization value
+	UtilizationMetricType MetricTargetType = "Utilization"
+	// ValueMetricType declares a MetricTarget is a raw value
+	ValueMetricType MetricTargetType = "Value"
+	// AverageValueMetricType declares a MetricTarget is an
+	AverageValueMetricType MetricTargetType = "AverageValue"
+)
+
+// MetricTarget defines the target value, average value, or average utilization of a specific metric
+type MetricTarget struct {
+	// type represents whether the metric type is Utilization, Value, or AverageValue
+	Type MetricTargetType `json:"type" protobuf:"bytes,1,name=type"`
+	// value is the target value of the metric (as a quantity).
+	// +optional
+	Value *resource.Quantity `json:"value,omitempty" protobuf:"bytes,2,opt,name=value"`
+	// averageValue is the target value of the average of the
+	// metric across all relevant pods (as a quantity)
+	// +optional
+	AverageValue *resource.Quantity `json:"averageValue,omitempty" protobuf:"bytes,3,opt,name=averageValue"`
+	// averageUtilization is the target value of the average of the
+	// resource metric across all relevant pods, represented as a percentage of
+	// the requested value of the resource for the pods.
+	// Currently only valid for Resource metric source type
+	// +optional
+	AverageUtilization *int32 `json:"averageUtilization,omitempty" protobuf:"bytes,4,opt,name=averageUtilization"`
+}
 
 // ReplicaAutoscalerSpec defines the desired state of ReplicaAutoscaler
 type ReplicaAutoscalerSpec struct {
@@ -30,7 +62,7 @@ type ReplicaAutoscalerSpec struct {
 	Replicator *string `json:"replicator,omitempty"`
 	// ScaleTargetRef points to the target resource to scale, and is used to the pods for which metrics
 	// should be collected, as well as to actually change the replica count.
-	ScaleTargetRef autoscalingv2.CrossVersionObjectReference `json:"scaleTargetRef"`
+	ScaleTargetRef CrossVersionObjectReference `json:"scaleTargetRef"`
 	// minReplicas is the lower limit for the number of replicas to which the autoscaler can scale down.
 	// If `minReplicas` is nil then the replicas will be set as `maxReplicas` without autoscaling.
 	// +optional
@@ -52,7 +84,7 @@ type ReplicaAutoscalerTarget struct {
 	// metric indicates which metric provider should present utilization stat.
 	Metric string `json:"metric"`
 	// metricType represents whether the metric type is Utilization, Value, or AverageValue
-	MetricType autoscalingv2.MetricTargetType `json:"metricType,omitempty"`
+	MetricType MetricTargetType `json:"metricType,omitempty"`
 
 	Settings TargetSettings `json:"settings"`
 }
@@ -116,7 +148,7 @@ type TargetStatus struct {
 	// Target desired replicas calculated by giving settings
 	DesiredReplicas int32 `json:"desireReplicas"`
 	// Metric holds key values of scaler which used for calculate desired replicas
-	Metric autoscalingv2.MetricTarget ` json:"metric"`
+	Metric MetricTarget ` json:"metric"`
 }
 
 //+kubebuilder:object:root=true

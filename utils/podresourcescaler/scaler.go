@@ -13,7 +13,6 @@ import (
 	"github.com/xscaling/wing/utils/metrics"
 
 	"github.com/go-logr/logr"
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -91,8 +90,8 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 	utils.SetTargetStatus(ctx.AutoscalerStatus, wingv1.TargetStatus{
 		Target:          s.pluginName,
 		DesiredReplicas: desiredReplicas,
-		Metric: autoscalingv2.MetricTarget{
-			Type:               autoscalingv2.UtilizationMetricType,
+		Metric: wingv1.MetricTarget{
+			Type:               wingv1.UtilizationMetricType,
 			AverageUtilization: &averageUtilization,
 		},
 	})
