@@ -24,6 +24,7 @@ import (
 
 	wingv1 "github.com/xscaling/wing/api/v1"
 	"github.com/xscaling/wing/controllers"
+	"go.uber.org/zap/zapcore"
 
 	// Register plugins
 	"github.com/xscaling/wing/core/engine"
@@ -65,6 +66,7 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	zapOptions := zap.Options{
 		Development: true,
+		TimeEncoder: zapcore.ISO8601TimeEncoder,
 	}
 	zapOptions.BindFlags(flag.CommandLine)
 
