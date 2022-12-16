@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"time"
 
 	wingv1 "github.com/xscaling/wing/api/v1"
 	"github.com/xscaling/wing/core/engine"
@@ -74,19 +73,12 @@ func (r *ReplicaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		logger.Error(err, "Unable to get ReplicaAutoscaler")
 		return ctrl.Result{}, err
 	}
-	requeue, err := r.reconcile(logger, replicaAutoscaler)
-	if err != nil {
-		logger.Error(err, "Failed to reconcile ReplicaAutoscaler")
-		return ctrl.Result{}, err
-	}
+	requeueDelay := r.reconcile(logger, replicaAutoscaler)
 	// If we didn't requeue here then in this case one request would be dropped
 	// and RA would processed after 2 x resyncPeriod.
-	if requeue {
-		return ctrl.Result{
-			RequeueAfter: time.Second * 3,
-		}, nil
-	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{
+		RequeueAfter: requeueDelay,
+	}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

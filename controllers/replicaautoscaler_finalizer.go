@@ -17,12 +17,14 @@ limitations under the License.
 package controllers
 
 import (
+	"time"
+
 	wingv1 "github.com/xscaling/wing/api/v1"
 
 	"github.com/go-logr/logr"
 )
 
 // finalizer will do some recovery works
-func (r *ReplicaAutoscalerReconciler) finalizeAutoscaler(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler) (requeue bool, err error) {
-	return true, nil
+func (r *ReplicaAutoscalerReconciler) finalizeAutoscaler(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler) time.Duration {
+	return DefaultRequeueDelay
 }

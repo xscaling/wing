@@ -36,13 +36,18 @@ import (
 )
 
 const (
+	NotRequeue                = time.Duration(0)
+	DefaultRequeueDelay       = RequeueDelayOnNormalState
+	RequeueDelayOnErrorState  = time.Second * 5
+	RequeueDelayOnNormalState = time.Second * 10
+
 	DefaultScalingColdDown = time.Second * 15
 
 	DefaultReplicator = "simple"
 )
 
 // TODO(@oif): Status reporting and event recording
-func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler) (requeue bool, err error) {
+func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler) (requeueDelay time.Duration) {
 	if autoscaler.DeletionTimestamp != nil {
 		logger.V(2).Info("Found terminating autoscaler turn finalizer")
 		return r.finalizeAutoscaler(logger, autoscaler)
@@ -50,16 +55,18 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger, autoscaler *
 	// Check is target ref is a scalable object
 	if autoscaler.Spec.ScaleTargetRef.Name == "" || autoscaler.Spec.ScaleTargetRef.Kind == "" {
 		logger.Info("autoscaler.Spec.ScaleTargetRef.Name or autoscaler.Spec.ScaleTargetRef.Kind missing")
-		return false, nil
+		return NotRequeue
 	}
 	gvkr, err := utils.ParseGVKR(r.restMapper, autoscaler.Spec.ScaleTargetRef.APIVersion, autoscaler.Spec.ScaleTargetRef.Kind)
 	if err != nil {
-		return false, err
+		// FIXME: Set status here
+		return NotRequeue
 	}
 	scale, err := r.isTargetScalable(gvkr, autoscaler.Namespace, autoscaler.Spec.ScaleTargetRef.Name)
 	if err != nil {
 		logger.Error(err, "Target(%s) is unscalable", gvkr.GVKString())
-		return false, nil
+		// FIXME: Set status here
+		return NotRequeue
 	}
 	observingAutoscaler := autoscaler.DeepCopy()
 
@@ -70,20 +77,12 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger, autoscaler *
 	// A static replicas setting
 	if autoscaler.Spec.MinReplicas == nil {
 		logger.V(2).Info("Setting static replicas")
-		err = r.scaleReplicas(logger, autoscaler, gvkr, scale, autoscaler.Spec.MaxReplicas)
+		if err = r.scaleReplicas(logger, autoscaler, gvkr, scale, autoscaler.Spec.MaxReplicas); err != nil {
+			requeueDelay = RequeueDelayOnErrorState
+		}
 	} else {
 		// Working on autoscaling flow
-		requeue, err = r.reconcileAutoscaling(logger, autoscaler, gvkr, scale)
-	}
-	if err != nil {
-		autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
-			Type:    wingv1.ConditionReady,
-			Status:  metav1.ConditionFalse,
-			Reason:  "FailedToScale",
-			Message: fmt.Sprintf("Failed to scale target: %s", err),
-		})
-		logger.Error(err, "Failed to scale target")
-		return requeue, err
+		requeueDelay = r.reconcileAutoscaling(logger, autoscaler, gvkr, scale)
 	}
 
 	autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
@@ -99,10 +98,10 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger, autoscaler *
 		err = r.Client.Status().Patch(context.TODO(), observingAutoscaler, patch)
 		if err != nil {
 			logger.Error(err, "Failed to update autoscaler status")
-			return true, err
+			return RequeueDelayOnErrorState
 		}
 	}
-	return true, nil
+	return requeueDelay
 }
 
 func (r *ReplicaAutoscalerReconciler) isTargetScalable(gvkr wingv1.GroupVersionKindResource, namespace, name string) (*autoscalingv1.Scale, error) {
@@ -147,23 +146,34 @@ func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger, autoscal
 	// 	logger.Error(err, "Failed to scale replicas")
 	// 	return err
 	// }
+	var err error
+	if err != nil {
+		autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
+			Type:    wingv1.ConditionReady,
+			Status:  metav1.ConditionFalse,
+			Reason:  "FailedToScale",
+			Message: fmt.Sprintf("Failed to scale target: %s", err),
+		})
+		logger.Error(err, "Failed to scale target")
+	}
 
 	now := metav1.NewTime(time.Now())
 	autoscaler.Status.LastScaleTime = &now
 	return nil
 }
 
-func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler, gvkr wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale) (requeue bool, err error) {
+func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler,
+	gvkr wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale) (requeueDelay time.Duration) {
 	scaledObjectSelector, err := labels.Parse(scale.Status.Selector)
 	if err != nil {
 		logger.Error(err, "couldn't convert selector into a corresponding target selector object")
-		return true, err
+		return RequeueDelayOnErrorState
 	}
 
 	// Checking cold-down
 	if autoscaler.Status.LastScaleTime != nil && time.Since(autoscaler.Status.LastScaleTime.Time) < DefaultScalingColdDown {
 		logger.V(8).Info("Still in scaling cold-down period")
-		return true, nil
+		return DefaultRequeueDelay
 	}
 
 	now := time.Now()
@@ -178,13 +188,15 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 		scheduledTargetSettings, err := scheduling.GetScheduledSettingsRaw(now, target.Settings)
 		if err != nil {
 			logger.Error(err, "Failed to get scheduled target settings", "targetMetric", target.Metric)
-			return true, err
+			return RequeueDelayOnErrorState
 		}
 		logger.V(8).Info("Get scheduled target settings", "settings", string(scheduledTargetSettings), "metric", target.Metric)
 
 		scaler, ok := r.Engine.GetScaler(target.Metric)
 		if !ok {
-			return false, fmt.Errorf("scaler `%s` not exists for target", target.Metric)
+			// FIXME: Set status here
+			// return false, fmt.Errorf("scaler `%s` not exists for target", target.Metric)
+			return DefaultRequeueDelay
 		}
 		// Getting desired replicas from scaler
 		scalerOutput, err := scaler.Get(engine.ScalerContext{
@@ -197,7 +209,7 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 		})
 		if err != nil {
 			logger.Error(err, "Failed to get result from scaler", "scaler", target.Metric)
-			return true, err
+			return RequeueDelayOnErrorState
 		}
 		replicatorContext.ScalersOutput[target.Metric] = *scalerOutput
 	}
@@ -209,14 +221,16 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 
 	replicator, ok := r.Engine.GetReplicator(selectedReplicator)
 	if !ok {
+		// FIXME: Set status here
 		err = fmt.Errorf("replicator `%s` not registered", selectedReplicator)
 		logger.Error(err, "Replicator not found")
-		return false, err
+		return NotRequeue
 	}
 
 	desireReplicas, err := replicator.GetDesiredReplicas(replicatorContext)
 	if err != nil {
-		return false, fmt.Errorf("failed to get desired replicas from `%s`: %v", selectedReplicator, err)
+		logger.Error(err, "Failed to get desired replicas from replicator", "replicator", selectedReplicator)
+		return RequeueDelayOnErrorState
 	}
 	logger.V(4).Info("Replicator calculated desired replicas", "desiredReplicas", desireReplicas)
 
@@ -244,6 +258,10 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 			Status: metav1.ConditionFalse,
 		})
 	}
-
-	return true, r.scaleReplicas(logger, autoscaler, gvkr, scale, desireReplicas)
+	if err := r.scaleReplicas(logger, autoscaler, gvkr, scale, desireReplicas); err != nil {
+		// FIXME: Set status here
+		logger.Error(err, "Failed to scale replicas")
+		return RequeueDelayOnErrorState
+	}
+	return DefaultRequeueDelay
 }
