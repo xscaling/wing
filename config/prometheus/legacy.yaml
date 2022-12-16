@@ -1,0 +1,32 @@
+# Used for legacy metrics that are not exposed via the prometheus-operator
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    prometheus_io_path: /metrics
+    prometheus_io_port: "8080"
+    prometheus_io_scheme: HTTP
+    prometheus_io_scrape: "true"
+  labels:
+    control-plane: commander
+    app.kubernetes.io/name: service
+    app.kubernetes.io/instance: commander-metrics-service
+    app.kubernetes.io/component: kube-rbac-proxy
+    app.kubernetes.io/created-by: wing
+    app.kubernetes.io/part-of: wing
+    app.kubernetes.io/managed-by: kustomize
+    prometheus_group: wing-commander
+  name: commander-metrics-service
+  namespace: system
+spec:
+  ports:
+    - name: https
+      port: 8443
+      protocol: TCP
+      targetPort: https
+    - name: http
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    control-plane: commander
