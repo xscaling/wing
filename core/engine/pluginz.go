@@ -3,7 +3,7 @@
 package engine
 
 var (
-	Scalers = []string{"cpu", "memory"}
+	Scalers = []string{"cpu", "memory", "prometheus"}
 
 	Replicators = []string{"simple"}
 )
