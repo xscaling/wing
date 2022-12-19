@@ -120,7 +120,7 @@ func (r *replicator) GetDesiredReplicas(ctx engine.ReplicatorContext) (int32, er
 			r.eventRecorder.Eventf(ctx.Autoscaler, wingv1.EventTypeNormal, wingv1.EventReasonScaling, "New replica %d; %s are requiring scale-up", desiredReplicas, strings.Join(triggerScaleUpScalers, ","))
 		} else {
 			// ScaleDown
-			r.eventRecorder.Eventf(ctx.Autoscaler, wingv1.EventTypeNormal, wingv1.EventReasonScaling, "New replica %d; all resources are below target trying to scale-down")
+			r.eventRecorder.Eventf(ctx.Autoscaler, wingv1.EventTypeNormal, wingv1.EventReasonScaling, "New replica %d; all resources are below target trying to scale-down", desiredReplicas)
 		}
 		logger.Info("Decide to scale target replicas", "from", ctx.Scale.Spec.Replicas, "to", desiredReplicas)
 	}
