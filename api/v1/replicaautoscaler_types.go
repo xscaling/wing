@@ -38,20 +38,20 @@ const (
 // MetricTarget defines the target value, average value, or average utilization of a specific metric
 type MetricTarget struct {
 	// type represents whether the metric type is Utilization, Value, or AverageValue
-	Type MetricTargetType `json:"type" protobuf:"bytes,1,name=type"`
+	Type MetricTargetType `json:"type"`
 	// value is the target value of the metric (as a quantity).
 	// +optional
-	Value *resource.Quantity `json:"value,omitempty" protobuf:"bytes,2,opt,name=value"`
+	Value *resource.Quantity `json:"value,omitempty"`
 	// averageValue is the target value of the average of the
 	// metric across all relevant pods (as a quantity)
 	// +optional
-	AverageValue *resource.Quantity `json:"averageValue,omitempty" protobuf:"bytes,3,opt,name=averageValue"`
+	AverageValue *resource.Quantity `json:"averageValue,omitempty"`
 	// averageUtilization is the target value of the average of the
 	// resource metric across all relevant pods, represented as a percentage of
 	// the requested value of the resource for the pods.
 	// Currently only valid for Resource metric source type
 	// +optional
-	AverageUtilization *int32 `json:"averageUtilization,omitempty" protobuf:"bytes,4,opt,name=averageUtilization"`
+	AverageUtilization *int32 `json:"averageUtilization,omitempty"`
 }
 
 // ReplicaAutoscalerSpec defines the desired state of ReplicaAutoscaler
