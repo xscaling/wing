@@ -12,6 +12,9 @@ spec:
     kind: ReplicaAutoscaler
     listKind: ReplicaAutoscalerList
     plural: replicaautoscalers
+    shortNames:
+    - ra
+    - wra
     singular: replicaautoscaler
   scope: Namespaced
   versions:

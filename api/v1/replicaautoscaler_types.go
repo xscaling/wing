@@ -153,6 +153,7 @@ type TargetStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:shortName=ra;wra
 //+kubebuilder:printcolumn:name="Reference",type=string,JSONPath=`.spec.scaleTargetRef.name`
 //+kubebuilder:printcolumn:name="Min",type=string,JSONPath=`.spec.minReplicas`
 //+kubebuilder:printcolumn:name="Max",type=string,JSONPath=`.spec.maxReplicas`
