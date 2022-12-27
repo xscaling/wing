@@ -5,7 +5,7 @@ kind: Kustomization
 images:
 - name: controller
   newName: swr.cn-north-4.myhuaweicloud.com/wing/controller
-  newTag: testflight-1219-dryrun
+  newTag: testflight-1227-dryrun
 configMapGenerator:
 - files:
   - commander_config.yaml
