@@ -1,4 +1,4 @@
-package scheduling
+package timerange
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 
 func TestParseCronScheduleSpec(t *testing.T) {
 	mustGetTime := func(date string) time.Time {
-		when, err := time.Parse(schedulePeriodDateFormat, date)
+		when, err := time.Parse(SchedulePeriodDateFormat, date)
 		if err != nil {
 			panic(err)
 		}

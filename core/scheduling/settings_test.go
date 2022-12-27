@@ -5,6 +5,7 @@ import (
 	"time"
 
 	wingv1 "github.com/xscaling/wing/api/v1"
+	"github.com/xscaling/wing/utils/timerange"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,7 @@ func TestIsSchedulePeriodContains(t *testing.T) {
 	location, err := time.LoadLocation(fixedTZ)
 	require.NoError(t, err)
 
-	fixedDate, _ := time.ParseInLocation(schedulePeriodDateFormat, "2019-01-03 9:01", location)
+	fixedDate, _ := time.ParseInLocation(timerange.SchedulePeriodDateFormat, "2019-01-03 9:01", location)
 	_, err = isSchedulePeriodContains(fixedDate, wingv1.ScheduleTargetSettings{
 		Start: "0 0 * * *",
 		End:   "0 1 * * *",
@@ -153,13 +154,13 @@ func TestIsSchedulePeriodContains(t *testing.T) {
 			date:       "2021-12-02 18:59",
 			start:      "0 0 * * 3",
 			end:        "2021-12-03 19:00",
-			causeError: ErrInvalidSchedulePeriodFormat,
+			causeError: timerange.ErrInvalidSchedulePeriodFormat,
 		},
 		{
 			date:       "2021-12-02 18:59",
 			start:      "2021-12-03 19:00",
 			end:        "0 0 * * 3",
-			causeError: ErrInvalidSchedulePeriodFormat,
+			causeError: timerange.ErrInvalidSchedulePeriodFormat,
 		},
 		{
 			date:       "2021-12-05 0:00",
@@ -172,59 +173,59 @@ func TestIsSchedulePeriodContains(t *testing.T) {
 			start:      "* 9 * * *",
 			end:        "2 10 * * *",
 			contains:   false,
-			causeError: ErrCronScheduleSupportsExactMinuteHourValueOnly,
+			causeError: timerange.ErrCronScheduleSupportsExactMinuteHourValueOnly,
 		},
 		{
 			date:       "2019-01-02 9:01",
 			start:      "* * * * *",
 			end:        "2 10 * * *",
 			contains:   false,
-			causeError: ErrCronScheduleSupportsExactMinuteHourValueOnly,
+			causeError: timerange.ErrCronScheduleSupportsExactMinuteHourValueOnly,
 		},
 		{
 			date:       "2021-12-05 23:59",
 			start:      "0 0 * * 6",
 			end:        "0-1 0 * * 1",
 			contains:   false,
-			causeError: ErrCronScheduleSupportsExactMinuteHourValueOnly,
+			causeError: timerange.ErrCronScheduleSupportsExactMinuteHourValueOnly,
 		},
 		{
 			date:       "2021-12-05 23:59",
 			start:      "0-1 0 * * 6",
 			end:        "0 0 * * 1",
 			contains:   false,
-			causeError: ErrCronScheduleSupportsExactMinuteHourValueOnly,
+			causeError: timerange.ErrCronScheduleSupportsExactMinuteHourValueOnly,
 		},
 		{
 			date:       "2021-12-05 23:59",
 			start:      "0 0-1 * * 6",
 			end:        "0 0 * * 1",
 			contains:   false,
-			causeError: ErrCronScheduleSupportsExactMinuteHourValueOnly,
+			causeError: timerange.ErrCronScheduleSupportsExactMinuteHourValueOnly,
 		},
 		{
 			date:       "2021-12-05 23:59",
 			start:      "0 0 * * 6",
 			end:        "0 0-1 * * 1",
 			contains:   false,
-			causeError: ErrCronScheduleSupportsExactMinuteHourValueOnly,
+			causeError: timerange.ErrCronScheduleSupportsExactMinuteHourValueOnly,
 		},
 		{
 			date:       "2021-12-05 23:59",
 			start:      "0 0 * * 6 *",
 			end:        "0 0 * * 1",
 			contains:   false,
-			causeError: ErrNotAStandardCronSpec,
+			causeError: timerange.ErrNotAStandardCronSpec,
 		},
 		{
 			date:       "2021-12-05 23:59",
 			start:      "0 0 * * 6",
 			end:        "0 0 * * 1 *",
 			contains:   false,
-			causeError: ErrNotAStandardCronSpec,
+			causeError: timerange.ErrNotAStandardCronSpec,
 		},
 	} {
-		date, _err := time.ParseInLocation(schedulePeriodDateFormat, testCase.date, location)
+		date, _err := time.ParseInLocation(timerange.SchedulePeriodDateFormat, testCase.date, location)
 		require.NoError(t, _err)
 		contains, err := isSchedulePeriodContains(date, wingv1.ScheduleTargetSettings{
 			Timezone: fixedTZ,

@@ -7,15 +7,15 @@ import (
 	"time"
 
 	wingv1 "github.com/xscaling/wing/api/v1"
+	"github.com/xscaling/wing/utils/timerange"
 
 	jsonpatch "gopkg.in/evanphx/json-patch.v5"
 )
 
 var (
-	ErrTimezoneNotFound            = errors.New("timezone not found")
-	ErrSchedulePeriodNotFound      = errors.New("schedule period not found, `start` or `end` field not exists")
-	ErrInvalidSchedulePeriodFormat = errors.New("invalid schedule period format, accepts `cron` or `date`")
-	ErrStartEndSpecCanNotBeEqual   = errors.New("start and end spec can not be equal")
+	ErrTimezoneNotFound          = errors.New("timezone not found")
+	ErrSchedulePeriodNotFound    = errors.New("schedule period not found, `start` or `end` field not exists")
+	ErrStartEndSpecCanNotBeEqual = errors.New("start and end spec can not be equal")
 )
 
 // GetScheduledSettingsRaw returns the raw settings of LAST hit schedule one
@@ -48,20 +48,20 @@ func GetScheduledSettingsRaw(when time.Time, settings wingv1.TargetSettings) (pa
 	return payload, nil
 }
 
-func GetScheduler(scheduleSettings wingv1.ScheduleTargetSettings) (Scheduler, error) {
+func GetScheduler(scheduleSettings wingv1.ScheduleTargetSettings) (timerange.Scheduler, error) {
 	start, end, tz, err := getSchedulePeriod(scheduleSettings)
 	if err != nil {
 		return nil, err
 	}
 	var (
-		scheduler Scheduler
+		scheduler timerange.Scheduler
 	)
 	// Easy-Predict
-	switch len(strings.Split(start, cronFieldSeparator)) {
+	switch len(strings.Split(start, timerange.CronFieldSeparator)) {
 	case 5:
-		scheduler, err = NewCronScheduler(tz, start, end)
+		scheduler, err = timerange.NewCronScheduler(tz, start, end)
 	default:
-		return nil, ErrInvalidSchedulePeriodFormat
+		return nil, timerange.ErrInvalidSchedulePeriodFormat
 	}
 	return scheduler, err
 }
