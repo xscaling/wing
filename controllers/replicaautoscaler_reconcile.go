@@ -264,6 +264,15 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 	} else if desiredReplicas < maxReplicas {
 		desiredReplicas = minReplicas
 		scalingLimitedReason = "ReachMinimalReplicas"
+	} else if scale.Spec.Replicas != desiredReplicas {
+		if scale.Spec.Replicas > desiredReplicas {
+			// ScaleUp
+			r.EventRecorder.Eventf(autoscaler, wingv1.EventTypeNormal, wingv1.EventReasonScaling, "New replica %d; resource(s) are requiring scale-up", desiredReplicas)
+		} else {
+			// ScaleDown
+			r.EventRecorder.Eventf(autoscaler, wingv1.EventTypeNormal, wingv1.EventReasonScaling, "New replica %d; all resources are below target trying to scale-down", desiredReplicas)
+		}
+		logger.Info("Decide to scale target replicas", "from", scale.Spec.Replicas, "to", desiredReplicas)
 	}
 
 	if scalingLimitedReason != "" {
