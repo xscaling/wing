@@ -90,14 +90,19 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger, autoscaler *
 		Status: metav1.ConditionTrue,
 	})
 
-	isEqual := utils.DeepEqual(autoscaler.Status, observingAutoscaler.Status)
+	if err := utils.PurgeUnusedReplicaPatches(autoscaler); err != nil {
+		logger.Error(err, "Failed to purge unused replica patches")
+	}
+
+	isEqual := utils.DeepEqual(autoscaler, observingAutoscaler)
 	if !isEqual {
-		logger.V(4).Info("Updating ReplicaAutoscaler status")
+		logger.V(4).Info("Updating ReplicaAutoscaler status and potential annotations")
 		patch := runtimeclient.MergeFrom(observingAutoscaler.DeepCopy())
 		observingAutoscaler.Status = autoscaler.Status
-		err = r.Client.Status().Patch(context.TODO(), observingAutoscaler, patch)
+		observingAutoscaler.Annotations = autoscaler.Annotations
+		err = r.Client.Patch(context.TODO(), observingAutoscaler, patch)
 		if err != nil {
-			logger.Error(err, "Failed to update autoscaler status")
+			logger.Error(err, "Failed to update autoscaler status and potential annotations")
 			return RequeueDelayOnErrorState
 		}
 	}
@@ -227,22 +232,37 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 		return NotRequeue
 	}
 
-	desireReplicas, err := replicator.GetDesiredReplicas(replicatorContext)
+	desiredReplicas, err := replicator.GetDesiredReplicas(replicatorContext)
 	if err != nil {
 		logger.Error(err, "Failed to get desired replicas from replicator", "replicator", selectedReplicator)
 		return RequeueDelayOnErrorState
 	}
-	logger.V(4).Info("Replicator calculated desired replicas", "desiredReplicas", desireReplicas)
+	logger.V(4).Info("Replicator calculated desired replicas", "desiredReplicas", desiredReplicas)
 
 	// Final normalize desired replicas
 	var (
 		scalingLimitedReason = ""
+
+		maxReplicas = autoscaler.Spec.MaxReplicas
+		minReplicas = *autoscaler.Spec.MinReplicas
 	)
-	if desireReplicas > autoscaler.Spec.MaxReplicas {
-		desireReplicas = autoscaler.Spec.MaxReplicas
+	// Trying replica patch
+	workingReplicaPatch, err := getWorkingReplicaPatch(autoscaler)
+	if err != nil {
+		logger.Error(err, "Failed to get working replica patch, fallback to default")
+	} else if workingReplicaPatch == nil {
+		logger.V(8).Info("No working replica patch, fallback to default")
+	} else {
+		// Apply replica patch
+		maxReplicas = workingReplicaPatch.MaxReplicas
+		minReplicas = workingReplicaPatch.MinReplicas
+	}
+
+	if desiredReplicas > maxReplicas {
+		desiredReplicas = maxReplicas
 		scalingLimitedReason = "ReachMaxReplicas"
-	} else if desireReplicas < *autoscaler.Spec.MinReplicas {
-		desireReplicas = *autoscaler.Spec.MinReplicas
+	} else if desiredReplicas < maxReplicas {
+		desiredReplicas = minReplicas
 		scalingLimitedReason = "ReachMinimalReplicas"
 	}
 
@@ -258,10 +278,19 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 			Status: metav1.ConditionFalse,
 		})
 	}
-	if err := r.scaleReplicas(logger, autoscaler, gvkr, scale, desireReplicas); err != nil {
+	if err := r.scaleReplicas(logger, autoscaler, gvkr, scale, desiredReplicas); err != nil {
 		// FIXME: Set status here
 		logger.Error(err, "Failed to scale replicas")
 		return RequeueDelayOnErrorState
 	}
 	return DefaultRequeueDelay
+}
+
+func getWorkingReplicaPatch(autoscaler *wingv1.ReplicaAutoscaler) (*wingv1.ReplicaPatch, error) {
+	replicaPatches, err := utils.GetReplicaPatches(*autoscaler)
+	if err != nil {
+		return nil, err
+	}
+
+	return scheduling.GetReplicaPatch(time.Now(), replicaPatches)
 }
