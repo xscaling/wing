@@ -57,6 +57,7 @@ type ReplicaAutoscalerReconciler struct {
 //+kubebuilder:rbac:groups=wing.xscaling.dev,resources=replicaautoscalers/finalizers,verbs=update
 //+kubebuilder:rbac:groups=*,resources=*/scale,verbs=*
 //+kubebuilder:rbac:groups="core",resources=pods,verbs=get;list;watch
+//+kubebuilder:rbac:groups="core",resources=events,verbs="*"
 //+kubebuilder:rbac:groups="metrics.k8s.io",resources=*,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
