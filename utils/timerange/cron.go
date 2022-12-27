@@ -1,4 +1,4 @@
-package scheduling
+package timerange
 
 import (
 	"errors"
@@ -16,12 +16,12 @@ var (
 
 const (
 	cronAnyRangeListCharacters = "*/-,"
-	cronFieldSeparator         = " "
+	CronFieldSeparator         = " "
 )
 
 func validateCronSpec(spec string) error {
 	if spec[0] != '@' {
-		fields := strings.Split(spec, cronFieldSeparator)
+		fields := strings.Split(spec, CronFieldSeparator)
 		if len(fields) != 5 {
 			return fmt.Errorf("%w: `%s`", ErrNotAStandardCronSpec, spec)
 		}

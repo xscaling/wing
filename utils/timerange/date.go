@@ -1,4 +1,4 @@
-package scheduling
+package timerange
 
 import (
 	"errors"
@@ -8,10 +8,11 @@ import (
 
 var (
 	ErrStartDateMustBeBeforeEndDate = errors.New("start date must be before end date")
+	ErrInvalidSchedulePeriodFormat  = errors.New("invalid schedule period format, accepts `cron` or `date`")
 )
 
 const (
-	schedulePeriodDateFormat = "2006-01-02 15:04"
+	SchedulePeriodDateFormat = "2006-01-02 15:04"
 )
 
 type DateScheduler struct {
@@ -29,11 +30,11 @@ func NewDateScheduler(timezone *time.Location, start, end string) (*DateSchedule
 		},
 	}
 	var err error
-	s.startTime, err = time.ParseInLocation(schedulePeriodDateFormat, start, timezone)
+	s.startTime, err = time.ParseInLocation(SchedulePeriodDateFormat, start, timezone)
 	if err != nil {
 		return nil, fmt.Errorf("%w: start(%s) %s", ErrInvalidSchedulePeriodFormat, start, err)
 	}
-	s.endTime, err = time.ParseInLocation(schedulePeriodDateFormat, end, timezone)
+	s.endTime, err = time.ParseInLocation(SchedulePeriodDateFormat, end, timezone)
 	if err != nil {
 		return nil, fmt.Errorf("%w: end(%s) %s", ErrInvalidSchedulePeriodFormat, end, err)
 	}
