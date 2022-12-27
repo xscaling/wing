@@ -180,6 +180,33 @@ type ReplicaAutoscalerList struct {
 	Items           []ReplicaAutoscaler `json:"items"`
 }
 
+const (
+	ReplicaPatchesAnnotation = "wing.xscaling.dev/replica-patches"
+)
+
+// Advanced feature: Replica Patch, dynamic controls the scaling range of the replica autoscaler.
+// implemented in ReplicaAutoscaler annotation `wing.xscaling.dev/replica-patches`.
+// As stored in annotation, it's a json string of []ReplicaPatch and it's mutable for controller rather than spec.
+// WARNING: If it's a static replica autoscaler, this patch will be ignored.
+type ReplicaPatch struct {
+	// Specified the working timezone of the patch.
+	Timezone string `json:"timezone"`
+	// Start and End could be a cron expression or a time string.
+	// But can't be mixed.
+	Start string `json:"start"`
+	End   string `json:"end"`
+	// When using specified time range, retention seconds is required.
+	// It's the time duration of the patch will be hold for after end time, then will be purge.
+	// Zero means will be deleted once found out of the time range.
+	RetentionSeconds *int64 `json:"retentionSeconds,omitempty"`
+	// MinReplicas is the lower limit for the number of replicas to which the autoscaler can scale down.
+	MinReplicas int32 `json:"minReplicas"`
+	// MaxReplicas is the upper limit for the number of replicas to which the autoscaler can scale up.
+	MaxReplicas int32 `json:"maxReplicas"`
+}
+
+type ReplicaPatches []ReplicaPatch
+
 func init() {
 	SchemeBuilder.Register(&ReplicaAutoscaler{}, &ReplicaAutoscalerList{})
 }
