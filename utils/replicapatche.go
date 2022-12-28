@@ -1,11 +1,14 @@
 package utils
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
 	wingv1 "github.com/xscaling/wing/api/v1"
 	"github.com/xscaling/wing/utils/timerange"
+
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func GetReplicaPatches(replicaAutoscaler wingv1.ReplicaAutoscaler) (wingv1.ReplicaPatches, error) {
@@ -24,13 +27,13 @@ func GetReplicaPatches(replicaAutoscaler wingv1.ReplicaAutoscaler) (wingv1.Repli
 	return replicaPatches, nil
 }
 
-func PurgeUnusedReplicaPatches(replicaAutoscaler *wingv1.ReplicaAutoscaler) (changed bool, err error) {
+func PurgeUnusedReplicaPatches(client runtimeclient.Client, replicaAutoscaler *wingv1.ReplicaAutoscaler) error {
 	patches, err := GetReplicaPatches(*replicaAutoscaler)
 	if err != nil {
-		return false, err
+		return err
 	}
 	if patches == nil {
-		return false, nil
+		return nil
 	}
 	var newPatches wingv1.ReplicaPatches
 	for _, patch := range patches {
@@ -52,16 +55,22 @@ func PurgeUnusedReplicaPatches(replicaAutoscaler *wingv1.ReplicaAutoscaler) (cha
 	}
 	if len(newPatches) == len(patches) {
 		// nothing to update
-		return false, nil
+		return nil
 	}
+	raw := replicaAutoscaler.DeepCopy()
 	if len(newPatches) == 0 {
 		delete(replicaAutoscaler.Annotations, wingv1.ReplicaPatchesAnnotation)
 	} else {
 		newPatchesString, err := json.Marshal(newPatches)
 		if err != nil {
-			return false, err
+			return err
 		}
 		replicaAutoscaler.Annotations[wingv1.ReplicaPatchesAnnotation] = string(newPatchesString)
 	}
-	return true, nil
+	patch := runtimeclient.MergeFrom(raw.DeepCopy())
+	raw.Annotations = make(map[string]string)
+	for k, v := range replicaAutoscaler.Annotations {
+		raw.Annotations[k] = v
+	}
+	return client.Patch(context.TODO(), raw, patch)
 }
