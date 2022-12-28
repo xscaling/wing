@@ -101,6 +101,7 @@ func (r *ReplicaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: r.Config.Workers,
+			// TODO(@oif): Implement rate limiting
 		}).
 		For(&wingv1.ReplicaAutoscaler{}).
 		Complete(r)

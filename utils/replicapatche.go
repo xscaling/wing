@@ -24,13 +24,13 @@ func GetReplicaPatches(replicaAutoscaler wingv1.ReplicaAutoscaler) (wingv1.Repli
 	return replicaPatches, nil
 }
 
-func PurgeUnusedReplicaPatches(replicaAutoscaler *wingv1.ReplicaAutoscaler) error {
+func PurgeUnusedReplicaPatches(replicaAutoscaler *wingv1.ReplicaAutoscaler) (changed bool, err error) {
 	patches, err := GetReplicaPatches(*replicaAutoscaler)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if patches == nil {
-		return nil
+		return false, nil
 	}
 	var newPatches wingv1.ReplicaPatches
 	for _, patch := range patches {
@@ -50,14 +50,18 @@ func PurgeUnusedReplicaPatches(replicaAutoscaler *wingv1.ReplicaAutoscaler) erro
 		}
 		newPatches = append(newPatches, patch)
 	}
+	if len(newPatches) == len(patches) {
+		// nothing to update
+		return false, nil
+	}
 	if len(newPatches) == 0 {
 		delete(replicaAutoscaler.Annotations, wingv1.ReplicaPatchesAnnotation)
-		return nil
+	} else {
+		newPatchesString, err := json.Marshal(newPatches)
+		if err != nil {
+			return false, err
+		}
+		replicaAutoscaler.Annotations[wingv1.ReplicaPatchesAnnotation] = string(newPatchesString)
 	}
-	newPatchesString, err := json.Marshal(newPatches)
-	if err != nil {
-		return err
-	}
-	replicaAutoscaler.Annotations[wingv1.ReplicaPatchesAnnotation] = string(newPatchesString)
-	return nil
+	return true, nil
 }

@@ -90,19 +90,22 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger, autoscaler *
 		Status: metav1.ConditionTrue,
 	})
 
-	if err := utils.PurgeUnusedReplicaPatches(autoscaler); err != nil {
+	replicaPatchesChanged, err := utils.PurgeUnusedReplicaPatches(autoscaler)
+	if err != nil {
 		logger.Error(err, "Failed to purge unused replica patches")
 	}
 
-	isEqual := utils.DeepEqual(autoscaler, observingAutoscaler)
-	if !isEqual {
-		logger.V(4).Info("Updating ReplicaAutoscaler status and potential annotations")
+	if !utils.DeepEqual(autoscaler.Status, observingAutoscaler.Status) || replicaPatchesChanged {
+		logger.V(4).Info("Updating ReplicaAutoscaler")
 		patch := runtimeclient.MergeFrom(observingAutoscaler.DeepCopy())
 		observingAutoscaler.Status = autoscaler.Status
-		observingAutoscaler.Annotations = autoscaler.Annotations
+		observingAutoscaler.Annotations = make(map[string]string)
+		for k, v := range autoscaler.Annotations {
+			observingAutoscaler.Annotations[k] = v
+		}
 		err = r.Client.Patch(context.TODO(), observingAutoscaler, patch)
 		if err != nil {
-			logger.Error(err, "Failed to update autoscaler status and potential annotations")
+			logger.Error(err, "Failed to update autoscaler")
 			return RequeueDelayOnErrorState
 		}
 	}
