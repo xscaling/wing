@@ -7,8 +7,9 @@ import (
 type ConditionType string
 
 const (
-	ConditionScaleLimited ConditionType = "ScaleLimited"
-	ConditionReady        ConditionType = "Ready"
+	ConditionReplicaPatched ConditionType = "ReplicaPatched"
+	ConditionScaleLimited   ConditionType = "ScaleLimited"
+	ConditionReady          ConditionType = "Ready"
 )
 
 type Conditions []Condition

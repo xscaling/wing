@@ -90,22 +90,17 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger, autoscaler *
 		Status: metav1.ConditionTrue,
 	})
 
-	replicaPatchesChanged, err := utils.PurgeUnusedReplicaPatches(autoscaler)
-	if err != nil {
+	if err := utils.PurgeUnusedReplicaPatches(r.Client, autoscaler); err != nil {
 		logger.Error(err, "Failed to purge unused replica patches")
 	}
 
-	if !utils.DeepEqual(autoscaler.Status, observingAutoscaler.Status) || replicaPatchesChanged {
-		logger.V(4).Info("Updating ReplicaAutoscaler")
+	if !utils.DeepEqual(autoscaler.Status, observingAutoscaler.Status) {
+		logger.V(4).Info("Updating ReplicaAutoscaler status")
 		patch := runtimeclient.MergeFrom(observingAutoscaler.DeepCopy())
 		observingAutoscaler.Status = autoscaler.Status
-		observingAutoscaler.Annotations = make(map[string]string)
-		for k, v := range autoscaler.Annotations {
-			observingAutoscaler.Annotations[k] = v
-		}
-		err = r.Client.Patch(context.TODO(), observingAutoscaler, patch)
+		err = r.Client.Status().Patch(context.TODO(), observingAutoscaler, patch)
 		if err != nil {
-			logger.Error(err, "Failed to update autoscaler")
+			logger.Error(err, "Failed to update autoscaler status")
 			return RequeueDelayOnErrorState
 		}
 	}
@@ -249,6 +244,12 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 		maxReplicas = autoscaler.Spec.MaxReplicas
 		minReplicas = *autoscaler.Spec.MinReplicas
 	)
+	autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
+		Type:   wingv1.ConditionReplicaPatched,
+		Status: metav1.ConditionFalse,
+		Reason: "No replica patch applied",
+	})
+
 	// Trying replica patch
 	workingReplicaPatch, err := getWorkingReplicaPatch(autoscaler)
 	if err != nil {
@@ -259,6 +260,11 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 		// Apply replica patch
 		maxReplicas = workingReplicaPatch.MaxReplicas
 		minReplicas = workingReplicaPatch.MinReplicas
+		autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
+			Type:   wingv1.ConditionReplicaPatched,
+			Status: metav1.ConditionTrue,
+			Reason: fmt.Sprintf("Applied replica patch [%d, %d]", minReplicas, maxReplicas),
+		})
 	}
 
 	if desiredReplicas > maxReplicas {
