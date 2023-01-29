@@ -13,3 +13,12 @@ func SetTargetStatus(status *wingv1.ReplicaAutoscalerStatus, targetStatus wingv1
 	}
 	status.Targets = append(status.Targets, targetStatus)
 }
+
+func GetTargetStatus(status *wingv1.ReplicaAutoscalerStatus, target string) (*wingv1.TargetStatus, bool) {
+	for _, targetStatus := range status.Targets {
+		if targetStatus.Target == target {
+			return targetStatus.DeepCopy(), true
+		}
+	}
+	return nil, false
+}
