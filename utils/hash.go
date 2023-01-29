@@ -1,11 +1,15 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"hash"
 	"hash/fnv"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/dgryski/go-farm"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
@@ -33,4 +37,12 @@ func ComputeObjectHash(object interface{}) string {
 
 func IsObjectEqual(x, y interface{}) bool {
 	return ComputeObjectHash(x) == ComputeObjectHash(y)
+}
+
+func FarmHash(b *bytes.Buffer) string {
+	lo, hi := farm.Hash128(b.Bytes())
+	x := make([]byte, 16)
+	binary.LittleEndian.PutUint64(x, lo)
+	binary.LittleEndian.PutUint64(x[8:], hi)
+	return hex.EncodeToString(x)
 }
