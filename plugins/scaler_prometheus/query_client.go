@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/xscaling/wing/utils"
+
 	"github.com/prometheus/common/model"
 )
 
@@ -77,7 +79,7 @@ func (c *promQueryClient) Query(server Server, query string, when time.Time) (fl
 		req.SetBasicAuth(*server.Username, password)
 	}
 	httpClient := c.httpClient
-	if server.InsecureSSL != nil && *server.InsecureSSL {
+	if utils.GetPointerBoolValue(server.InsecureSSL, false) {
 		httpClient = c.insecureHTTPClient
 	}
 	resp, err := httpClient.Do(req)
