@@ -15,6 +15,11 @@ import (
 	"github.com/prometheus/common/model"
 )
 
+var (
+	ErrNullValue     = errors.New("query returns null value")
+	ErrMultipleValue = errors.New("query returns multiple values")
+)
+
 // ResponseMeta contains response information such as status, error
 type ResponseMeta struct {
 	Status    string   `json:"status"`
@@ -63,7 +68,7 @@ func NewQueryClient(timeout time.Duration) *promQueryClient {
 
 func (c *promQueryClient) Query(server Server, query string, when time.Time) (float64, error) {
 	queryEscaped := url.QueryEscape(query)
-	url := fmt.Sprintf("%s/api/v1/query?query=%s&time=%s", *server.ServerAddress, queryEscaped, when.Format(time.RFC3339))
+	url := fmt.Sprintf("%s/api/v1/query?query=%s&time=%d", *server.ServerAddress, queryEscaped, when.Unix())
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return -1, err
@@ -101,9 +106,9 @@ func (c *promQueryClient) Query(server Server, query string, when time.Time) (fl
 	resultSize := len(vector.Data.Result)
 	if resultSize == 0 {
 		// empty value will be regarded as zero
-		return 0, nil
+		return -1, ErrNullValue
 	} else if resultSize > 1 {
-		return -1, errors.New("this query returns multiple data")
+		return -1, ErrMultipleValue
 	}
 	return float64(vector.Data.Result[0].Value), nil
 }
