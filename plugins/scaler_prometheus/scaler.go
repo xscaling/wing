@@ -1,8 +1,11 @@
 package prometheus
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	wingv1 "github.com/xscaling/wing/api/v1"
@@ -15,6 +18,8 @@ import (
 type scaler struct {
 	config      PluginConfig
 	queryClient QueryClient
+	// bytes.Buffer pool used to efficiently generate targetStatus.target.
+	bufferPool sync.Pool
 }
 
 var _ engine.Scaler = &scaler{}
@@ -38,6 +43,17 @@ type Settings struct {
 	// To filter out jitter of metric
 	Threshold float64 `json:"threshold"`
 
+	// Failover settings
+	// 1. If the query result is null or failed then abort scaling
+	// 2. If the query result is null or failed and FailAsZero then regard as zero value
+	// 3. If the query result is null or failed and FailAsLastValue then use latest value stored in status as result.
+	//    If there is no latest value stored in status then will abort scaling as well.
+	// FailAsZero and FailAsLastValue are mutually exclusive.
+	// Those fallback strategies are aims to avoid scale down when the metric is not available.
+	// WARNING: Failover won't working after modify query string
+	FailAsZero      *bool `json:"failAsZero,omitempty"`
+	FailAsLastValue *bool `json:"failAsLastValue,omitempty"`
+
 	Server `json:",inline"`
 }
 
@@ -47,6 +63,9 @@ func (s *Settings) Validate() error {
 	}
 	if s.Threshold <= 0 {
 		return errors.New("threshold must be positive")
+	}
+	if s.FailAsZero != nil && *s.FailAsZero && s.FailAsLastValue != nil && *s.FailAsLastValue {
+		return errors.New("failAsZero and failAsLastValue are mutually exclusive")
 	}
 	return nil
 }
@@ -58,6 +77,11 @@ func New(config PluginConfig) (*scaler, error) {
 	return &scaler{
 		config:      config,
 		queryClient: NewQueryClient(config.Timeout),
+		bufferPool: sync.Pool{
+			New: func() interface{} {
+				return new(bytes.Buffer)
+			},
+		},
 	}, nil
 }
 
@@ -73,21 +97,46 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 	if settings.ServerAddress != nil {
 		provisionServer = settings.Server
 	}
-	value, err := s.queryClient.Query(provisionServer, settings.Query, time.Now())
-	if err != nil {
-		return nil, err
-	}
+
 	// Start calculating desired replicas
 	var (
-		averageValue    = 0.0
-		desiredReplicas = ctx.CurrentReplicas
+		averageValue             = math.MaxFloat64
+		desiredReplicas          = ctx.CurrentReplicas
+		shouldUpdateAverageValue = true
 	)
 
+	b := s.bufferPool.Get().(*bytes.Buffer)
+	b.Reset()
+	b.WriteString(settings.Query)
+	targetStatusName := PluginName + "/" + utils.FarmHash(b)
+	s.bufferPool.Put(b)
+
+	value, err := s.queryClient.Query(provisionServer, settings.Query, time.Now())
+	if err != nil {
+		// To avoid override status and doing nonsense update
+		shouldUpdateAverageValue = false
+
+		if utils.GetPointerBoolValue(settings.FailAsZero, false) {
+			value = 0
+		} else if utils.GetPointerBoolValue(settings.FailAsLastValue, false) {
+			// Try to get last value from status
+			if targetStatus, ok := utils.GetTargetStatus(ctx.AutoscalerStatus, targetStatusName); ok {
+				averageValue = float64(targetStatus.Metric.AverageValue.MilliValue()) / 1000
+			} else {
+				return nil, fmt.Errorf("unable to get latest value from status when failover is enabled: %s", err)
+			}
+		} else {
+			return nil, err
+		}
+	}
 	// Empty result or return zero indeed
 	if value == 0 || ctx.CurrentReplicas == 0 {
 		desiredReplicas = 0
 	} else {
-		averageValue = value / float64(ctx.CurrentReplicas)
+		// If averageValue is not set then calculate it, otherwise use previous set value
+		if averageValue == math.MaxFloat64 {
+			averageValue = value / float64(ctx.CurrentReplicas)
+		}
 
 		scaleRatio := averageValue / settings.Threshold
 		// due to accuracy issue
@@ -97,14 +146,16 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 			desiredReplicas = int32(math.Ceil(scaleRatio * float64(ctx.CurrentReplicas)))
 		}
 	}
-	utils.SetTargetStatus(ctx.AutoscalerStatus, wingv1.TargetStatus{
-		Target:          PluginName,
-		DesiredReplicas: desiredReplicas,
-		Metric: wingv1.MetricTarget{
-			Type:         wingv1.AverageValueMetricType,
-			AverageValue: resource.NewMilliQuantity(int64(averageValue*1000), resource.DecimalSI),
-		},
-	})
+	if shouldUpdateAverageValue {
+		utils.SetTargetStatus(ctx.AutoscalerStatus, wingv1.TargetStatus{
+			Target:          targetStatusName,
+			DesiredReplicas: desiredReplicas,
+			Metric: wingv1.MetricTarget{
+				Type:         wingv1.AverageValueMetricType,
+				AverageValue: resource.NewMilliQuantity(int64(averageValue*1000), resource.DecimalSI),
+			},
+		})
+	}
 	return &engine.ScalerOutput{
 		DesiredReplicas: desiredReplicas,
 	}, nil

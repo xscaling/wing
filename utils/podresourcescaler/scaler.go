@@ -75,7 +75,10 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 		return nil, fmt.Errorf("failed to list pods: %v", err)
 	}
 	if len(pods) == 0 {
-		return nil, errors.New("no pods found by selector for calculation")
+		s.logger.WithValues("namespace", ctx.Namespace, "scaleTargetRef", ctx.ScaleTargetRef.Name).Info("No pods found by selector for calculation, keep current replicas")
+		return &engine.ScalerOutput{
+			DesiredReplicas: ctx.CurrentReplicas,
+		}, nil
 	}
 
 	resourceMetrics, _, err := s.kubernetesMetricsClient.GetResourceMetric(context.TODO(), s.resource, ctx.Namespace, ctx.ScaledObjectSelector, "")
