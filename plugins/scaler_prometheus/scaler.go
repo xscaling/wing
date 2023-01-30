@@ -15,11 +15,18 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
+var (
+	// bytes.Buffer pool used to efficiently generate targetStatus.target mostly
+	bufferPool = sync.Pool{
+		New: func() interface{} {
+			return new(bytes.Buffer)
+		},
+	}
+)
+
 type scaler struct {
 	config      PluginConfig
 	queryClient QueryClient
-	// bytes.Buffer pool used to efficiently generate targetStatus.target.
-	bufferPool sync.Pool
 }
 
 var _ engine.Scaler = &scaler{}
@@ -77,11 +84,6 @@ func New(config PluginConfig) (*scaler, error) {
 	return &scaler{
 		config:      config,
 		queryClient: NewQueryClient(config.Timeout),
-		bufferPool: sync.Pool{
-			New: func() interface{} {
-				return new(bytes.Buffer)
-			},
-		},
 	}, nil
 }
 
@@ -105,11 +107,7 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 		shouldUpdateAverageValue = true
 	)
 
-	b := s.bufferPool.Get().(*bytes.Buffer)
-	b.Reset()
-	b.WriteString(settings.Query)
-	targetStatusName := PluginName + "/" + utils.FarmHash(b)
-	s.bufferPool.Put(b)
+	targetStatusName := makeTargetStatusName(settings.Query)
 
 	value, err := s.queryClient.Query(provisionServer, settings.Query, time.Now())
 	if err != nil {
@@ -159,4 +157,13 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 	return &engine.ScalerOutput{
 		DesiredReplicas: desiredReplicas,
 	}, nil
+}
+
+func makeTargetStatusName(query string) string {
+	b := bufferPool.Get().(*bytes.Buffer)
+	defer bufferPool.Put(b)
+
+	b.Reset()
+	b.WriteString(query)
+	return PluginName + "/" + utils.FarmHash(b)
 }
