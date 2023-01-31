@@ -145,6 +145,8 @@ type ReplicaAutoscalerStatus struct {
 type TargetStatus struct {
 	// Target indicates the source of status
 	Target string `json:"target"`
+	// Scaler indicates which scaler used for calculating desired replicas
+	Scaler string `json:"scaler"`
 	// Target desired replicas calculated by giving settings
 	DesiredReplicas int32 `json:"desireReplicas"`
 	// Metric holds key values of scaler which used for calculate desired replicas
@@ -158,7 +160,7 @@ type TargetStatus struct {
 //+kubebuilder:printcolumn:name="Min",type=string,JSONPath=`.spec.minReplicas`
 //+kubebuilder:printcolumn:name="Max",type=string,JSONPath=`.spec.maxReplicas`
 //+kubebuilder:printcolumn:name="Replicas",type=string,JSONPath=`.status.currentReplicas`
-//+kubebuilder:printcolumn:name="Targets",type=string,JSONPath=`.status.targets[*].target`
+//+kubebuilder:printcolumn:name="Scaler",type=string,JSONPath=`.status.targets[*].scaler`
 //+kubebuilder:printcolumn:name="LastScaleTime",type=string,JSONPath=`.status.lastScaleTime`
 //+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
 

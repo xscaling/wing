@@ -92,6 +92,7 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 	}
 	utils.SetTargetStatus(ctx.AutoscalerStatus, wingv1.TargetStatus{
 		Target:          s.pluginName,
+		Scaler:          s.pluginName,
 		DesiredReplicas: desiredReplicas,
 		Metric: wingv1.MetricTarget{
 			Type:               wingv1.UtilizationMetricType,

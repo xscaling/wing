@@ -147,6 +147,7 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 	if shouldUpdateAverageValue {
 		utils.SetTargetStatus(ctx.AutoscalerStatus, wingv1.TargetStatus{
 			Target:          targetStatusName,
+			Scaler:          PluginName,
 			DesiredReplicas: desiredReplicas,
 			Metric: wingv1.MetricTarget{
 				Type:         wingv1.AverageValueMetricType,
