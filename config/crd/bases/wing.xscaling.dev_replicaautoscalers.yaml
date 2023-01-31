@@ -32,10 +32,13 @@ spec:
       name: Replicas
       type: string
     - jsonPath: .status.targets[*].scaler
-      name: Scaler
+      name: Scalers
       type: string
     - jsonPath: .status.lastScaleTime
       name: LastScaleTime
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="ReplicaPatched")].status
+      name: ReplicaPatched
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready

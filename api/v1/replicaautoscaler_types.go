@@ -160,8 +160,9 @@ type TargetStatus struct {
 //+kubebuilder:printcolumn:name="Min",type=string,JSONPath=`.spec.minReplicas`
 //+kubebuilder:printcolumn:name="Max",type=string,JSONPath=`.spec.maxReplicas`
 //+kubebuilder:printcolumn:name="Replicas",type=string,JSONPath=`.status.currentReplicas`
-//+kubebuilder:printcolumn:name="Scaler",type=string,JSONPath=`.status.targets[*].scaler`
+//+kubebuilder:printcolumn:name="Scalers",type=string,JSONPath=`.status.targets[*].scaler`
 //+kubebuilder:printcolumn:name="LastScaleTime",type=string,JSONPath=`.status.lastScaleTime`
+//+kubebuilder:printcolumn:name="ReplicaPatched",type=string,JSONPath=`.status.conditions[?(@.type=="ReplicaPatched")].status`
 //+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
 
 // ReplicaAutoscaler is the Schema for the replicaautoscalers API
