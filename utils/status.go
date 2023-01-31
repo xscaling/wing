@@ -22,3 +22,15 @@ func GetTargetStatus(status *wingv1.ReplicaAutoscalerStatus, target string) (*wi
 	}
 	return nil, false
 }
+
+func PurgeTargetStatus(managed []string, status *wingv1.ReplicaAutoscalerStatus) {
+	targets := status.Targets
+	status.Targets = nil
+	for _, target := range targets {
+		for _, managedTarget := range managed {
+			if target.Target == managedTarget {
+				status.Targets = append(status.Targets, target)
+			}
+		}
+	}
+}

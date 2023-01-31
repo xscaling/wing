@@ -156,7 +156,8 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 		})
 	}
 	return &engine.ScalerOutput{
-		DesiredReplicas: desiredReplicas,
+		DesiredReplicas:     desiredReplicas,
+		ManagedTargetStatus: []string{targetStatusName},
 	}, nil
 }
 

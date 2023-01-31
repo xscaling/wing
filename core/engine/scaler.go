@@ -10,7 +10,8 @@ import (
 )
 
 type ScalerOutput struct {
-	DesiredReplicas int32
+	DesiredReplicas     int32
+	ManagedTargetStatus []string
 }
 
 type Scaler interface {

@@ -187,6 +187,8 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 		ScalersOutput: make(map[string]engine.ScalerOutput),
 	}
 
+	var managedTargetStatus []string
+
 	for _, target := range autoscaler.Spec.Targets {
 		scheduledTargetSettings, err := scheduling.GetScheduledSettingsRaw(now, target.Settings)
 		if err != nil {
@@ -215,7 +217,11 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 			return RequeueDelayOnErrorState
 		}
 		replicatorContext.ScalersOutput[target.Metric] = *scalerOutput
+		managedTargetStatus = append(managedTargetStatus, scalerOutput.ManagedTargetStatus...)
 	}
+
+	// Purge unused scaler targetStatus
+	utils.PurgeTargetStatus(managedTargetStatus, &autoscaler.Status)
 
 	selectedReplicator := DefaultReplicator
 	if autoscaler.Spec.Replicator != nil {
