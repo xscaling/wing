@@ -10,6 +10,7 @@ const (
 	ConditionReplicaPatched ConditionType = "ReplicaPatched"
 	ConditionScaleLimited   ConditionType = "ScaleLimited"
 	ConditionReady          ConditionType = "Ready"
+	ConditionPanicMode      ConditionType = "PanicMode"
 )
 
 type Conditions []Condition

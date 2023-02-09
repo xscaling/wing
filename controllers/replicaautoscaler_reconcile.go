@@ -39,7 +39,8 @@ const (
 	NotRequeue                = time.Duration(0)
 	DefaultRequeueDelay       = RequeueDelayOnNormalState
 	RequeueDelayOnErrorState  = time.Second * 5
-	RequeueDelayOnNormalState = time.Second * 10
+	RequeueDelayOnNormalState = time.Second * 15
+	RequeueDelayOnPanicState  = time.Second * 5
 
 	DefaultScalingColdDown = time.Second * 15
 
@@ -191,7 +192,12 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 	}
 
 	// Checking cold-down
-	if autoscaler.Status.LastScaleTime != nil && time.Since(autoscaler.Status.LastScaleTime.Time) < DefaultScalingColdDown {
+	currentPanicModeCondition := wingv1.GetCondition(autoscaler.Status.Conditions, wingv1.ConditionPanicMode)
+	underPanicModeCurrently := utils.StillInPanicMode(currentPanicModeCondition, autoscaler.Spec.Strategy)
+	if autoscaler.Status.LastScaleTime != nil &&
+		time.Since(autoscaler.Status.LastScaleTime.Time) < DefaultScalingColdDown &&
+		// Not in panic mode
+		!underPanicModeCurrently {
 		logger.V(8).Info("Still in scaling cold-down period")
 		return DefaultRequeueDelay
 	}
@@ -330,6 +336,34 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger, a
 	if err := r.scaleReplicas(logger, autoscaler, gvkr, scale, desiredReplicas); err != nil {
 		logger.Error(err, "Failed to scale replicas")
 		return RequeueDelayOnErrorState
+	}
+
+	// Checking should enter panic mode or not(ReplicaPatch aware)
+	shouldEnterPanicMode := utils.ShouldEnterPanicMode(desiredReplicas, scale.Spec.Replicas, autoscaler.Spec.Strategy)
+	if shouldEnterPanicMode {
+		if underPanicModeCurrently {
+			logger.V(4).Info("Still in panic mode")
+		} else {
+			logger.Info("Enter panic mode")
+			r.EventRecorder.Eventf(autoscaler, wingv1.EventTypeWarning, wingv1.EventReasonPanicMode,
+				"Enter panic mode: %d -> %d(threshold %.2f with window %s).",
+				scale.Spec.Replicas, desiredReplicas, autoscaler.Spec.Strategy.PanicThreshold, time.Duration(*autoscaler.Spec.Strategy.PanicWindowSeconds)*time.Second)
+		}
+		autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
+			Type:   wingv1.ConditionPanicMode,
+			Status: metav1.ConditionTrue,
+		})
+		return RequeueDelayOnPanicState
+	}
+	autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
+		Type:   wingv1.ConditionPanicMode,
+		Status: metav1.ConditionFalse,
+	})
+	if underPanicModeCurrently {
+		// Exit panic mode
+		logger.Info("Exit panic mode")
+		r.EventRecorder.Eventf(autoscaler, wingv1.EventTypeWarning, wingv1.EventReasonPanicMode,
+			"Exit panic mode: %d -> %d.", scale.Spec.Replicas, desiredReplicas)
 	}
 	return DefaultRequeueDelay
 }

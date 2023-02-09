@@ -76,7 +76,19 @@ type ReplicaAutoscalerSpec struct {
 	// +optional
 	Targets []ReplicaAutoscalerTarget `json:"targets,omitempty"`
 
-	// TODO(@oif): Advance scaling strategy
+	// Strategy decides how to make scaling decision
+	// +kubebuilder:validation:Optional
+	// +optional
+	Strategy *ReplicaAutoscalerStrategy `json:"strategy,omitempty"`
+}
+
+type ReplicaAutoscalerStrategy struct {
+	// Panic Mode
+	// Panic Windows in seconds indicates how long the panic mode will last after startup.
+	PanicWindowSeconds *int32 `json:"panicWindowSeconds,omitempty"`
+	// Panic Threshold indicates the threshold of replicas to trigger panic mode.
+	// Value: 1.1 - 10.0 e.g 1.1 means the desired replicas is 110% of the current replicas.
+	PanicThreshold *resource.Quantity `json:"panicThreshold,omitempty"`
 }
 
 // ReplicaAutoscalerTarget defines metric provider and target threshold
@@ -164,6 +176,7 @@ type TargetStatus struct {
 //+kubebuilder:printcolumn:name="LastScaleTime",type=string,JSONPath=`.status.lastScaleTime`
 //+kubebuilder:printcolumn:name="ReplicaPatched",type=string,JSONPath=`.status.conditions[?(@.type=="ReplicaPatched")].status`
 //+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
+//+kubebuilder:printcolumn:name="PanicMode",type="string",JSONPath=".status.conditions[?(@.type==\"PanicMode\")].status"
 
 // ReplicaAutoscaler is the Schema for the replicaautoscalers API
 type ReplicaAutoscaler struct {

@@ -43,6 +43,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
+    - jsonPath: .status.conditions[?(@.type=="PanicMode")].status
+      name: PanicMode
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -96,6 +99,24 @@ spec:
                 required:
                 - kind
                 - name
+                type: object
+              strategy:
+                description: Strategy decides how to make scaling decision
+                properties:
+                  panicThreshold:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: 'Panic Threshold indicates the threshold of replicas
+                      to trigger panic mode. Value: 1.1 - 10.0 e.g 1.1 means the desired
+                      replicas is 110% of the current replicas.'
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  panicWindowSeconds:
+                    description: Panic Mode Panic Windows in seconds indicates how
+                      long the panic mode will last after startup.
+                    format: int32
+                    type: integer
                 type: object
               targets:
                 description: Targets contain various scaling metrics and thresholds

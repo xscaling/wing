@@ -8,5 +8,6 @@ const (
 )
 
 const (
-	EventReasonScaling = "Scaling"
+	EventReasonScaling   = "Scaling"
+	EventReasonPanicMode = "PanicMode"
 )
