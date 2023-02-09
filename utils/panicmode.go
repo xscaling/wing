@@ -29,9 +29,10 @@ func ShouldEnterPanicMode(desiredReplicas, currentReplicas int32, strategy *wing
 	return percentage >= strategy.PanicThreshold.AsApproximateFloat64()
 }
 
-func StillInPanicMode(condition wingv1.Condition, strategy *wingv1.ReplicaAutoscalerStrategy) bool {
+func StillInPanicMode(status wingv1.ReplicaAutoscalerStatus, strategy *wingv1.ReplicaAutoscalerStrategy) bool {
 	if !IsPanicModeConfigured(strategy) {
 		return false
 	}
+	condition := wingv1.GetCondition(status.Conditions, wingv1.ConditionPanicMode)
 	return condition.Type == wingv1.ConditionPanicMode && condition.Status == metav1.ConditionTrue && time.Since(condition.LastTransitionTime.Time) < time.Duration(*strategy.PanicWindowSeconds)*time.Second
 }
