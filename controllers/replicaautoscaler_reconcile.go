@@ -47,7 +47,6 @@ const (
 	DefaultReplicator = "simple"
 )
 
-// TODO(@oif): Status reporting and event recording
 func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger,
 	autoscaler *wingv1.ReplicaAutoscaler) (requeueDelay time.Duration) {
 	if autoscaler.DeletionTimestamp != nil {

@@ -13,7 +13,6 @@ const (
 	PluginEndpointReplicator = "Replicator"
 )
 
-// TODO(@oif): With initialization context as well
 type Controller interface {
 	GetPluginConfig(name string, configReceiver interface{}) (ok bool, err error)
 	AddReplicator(name string, replicator Replicator)
