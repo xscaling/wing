@@ -221,6 +221,7 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger,
 	var managedTargetStatus []string
 
 	for _, target := range autoscaler.Spec.Targets {
+		scalerStartAt := time.Now()
 		scheduledTargetSettings, err := scheduling.GetScheduledSettingsRaw(now, target.Settings)
 		if err != nil {
 			logger.Error(err, "Failed to get scheduled target settings", "targetMetric", target.Metric)
@@ -254,6 +255,7 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger,
 		}
 		replicatorContext.ScalersOutput[target.Metric] = *scalerOutput
 		managedTargetStatus = append(managedTargetStatus, scalerOutput.ManagedTargetStatus...)
+		metricPluginElapsed.WithLabelValues(autoscaler.Namespace, autoscaler.Name, target.Metric, "scaler").Add(time.Since(scalerStartAt).Seconds())
 	}
 
 	// Purge unused scaler targetStatus
@@ -263,8 +265,9 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger,
 	if autoscaler.Spec.Replicator != nil {
 		selectedReplicator = *autoscaler.Spec.Replicator
 	}
-
+	replicatorStartAt := time.Now()
 	replicator, ok := r.Engine.GetReplicator(selectedReplicator)
+	metricPluginElapsed.WithLabelValues(autoscaler.Namespace, autoscaler.Name, selectedReplicator, "replicator").Add(time.Since(replicatorStartAt).Seconds())
 	if !ok {
 		autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
 			Type:    wingv1.ConditionReady,
