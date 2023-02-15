@@ -365,12 +365,15 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger,
 		})
 		return RequeueDelayOnPanicState
 	}
-	if !utils.StillInPanicMode(autoscaler.Status, autoscaler.Spec.Strategy) &&
-		wingv1.GetCondition(autoscaler.Status.Conditions, wingv1.ConditionPanicMode).Status == metav1.ConditionTrue {
-		// Exit panic mode
-		logger.Info("Exit panic mode")
-		r.EventRecorder.Eventf(autoscaler, wingv1.EventTypeWarning, wingv1.EventReasonPanicMode,
-			"Exit panic mode: %d -> %d.", scale.Spec.Replicas, desiredReplicas)
+	// out of Panic Mode period
+	if !utils.StillInPanicMode(autoscaler.Status, autoscaler.Spec.Strategy) {
+		// Just exit panic mode
+		if wingv1.GetCondition(autoscaler.Status.Conditions, wingv1.ConditionPanicMode).Status == metav1.ConditionTrue {
+			// Exit panic mode
+			logger.Info("Exit panic mode")
+			r.EventRecorder.Eventf(autoscaler, wingv1.EventTypeWarning, wingv1.EventReasonPanicMode,
+				"Exit panic mode: %d -> %d.", scale.Spec.Replicas, desiredReplicas)
+		}
 		autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
 			Type:   wingv1.ConditionPanicMode,
 			Status: metav1.ConditionFalse,
