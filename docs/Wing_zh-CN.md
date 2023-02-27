@@ -8,7 +8,7 @@
 
 ## 架构
 
-![./assets/wing-architecture.png]()
+![](/docs/assets/wing-architecture.png)
 
 ## 实现
 
