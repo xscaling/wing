@@ -95,6 +95,13 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 	if err := settings.Validate(); err != nil {
 		return nil, err
 	}
+
+	if ctx.CurrentReplicas == 0 {
+		return &engine.ScalerOutput{
+			DesiredReplicas: 0,
+		}, nil
+	}
+
 	provisionServer := s.config.DefaultServer
 	if settings.ServerAddress != nil {
 		provisionServer = settings.Server
@@ -128,7 +135,7 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 		}
 	}
 	// Empty result or return zero indeed
-	if value == 0 || ctx.CurrentReplicas == 0 {
+	if value == 0 {
 		desiredReplicas = 0
 	} else {
 		// If averageValue is not set then calculate it, otherwise use previous set value
