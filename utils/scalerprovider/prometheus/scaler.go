@@ -24,8 +24,36 @@ var (
 	}
 )
 
+type ScalerConfig struct {
+	Toleration    float64       `yaml:"toleration"`
+	Timeout       time.Duration `yaml:"timeout"`
+	DefaultServer Server        `yaml:"defaultServer"`
+}
+
+func (c ScalerConfig) Validate() error {
+	if c.Toleration < 0 {
+		return errors.New("toleration must be non-negative")
+	}
+	if c.DefaultServer.ServerAddress == nil {
+		return errors.New("default server is required")
+	}
+	return nil
+}
+
+const (
+	DefaultToleration = 0.05
+)
+
+func NewDefaultConfig() *ScalerConfig {
+	return &ScalerConfig{
+		Toleration: DefaultToleration,
+		Timeout:    30 * time.Second,
+	}
+}
+
 type scaler struct {
-	config      PluginConfig
+	pluginName  string
+	config      ScalerConfig
 	queryClient QueryClient
 }
 
@@ -77,11 +105,12 @@ func (s *Settings) Validate() error {
 	return nil
 }
 
-func New(config PluginConfig) (*scaler, error) {
+func New(pluginName string, config ScalerConfig) (*scaler, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
 	return &scaler{
+		pluginName:  pluginName,
 		config:      config,
 		queryClient: NewQueryClient(config.Timeout),
 	}, nil
@@ -95,7 +124,10 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 	if err := settings.Validate(); err != nil {
 		return nil, err
 	}
+	return s.CalculateDesiredReplicas(ctx, settings)
+}
 
+func (s *scaler) CalculateDesiredReplicas(ctx engine.ScalerContext, settings *Settings) (*engine.ScalerOutput, error) {
 	if ctx.CurrentReplicas == 0 {
 		return &engine.ScalerOutput{
 			DesiredReplicas: 0,
@@ -114,7 +146,7 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 		shouldUpdateAverageValue = true
 	)
 
-	targetStatusName := makeTargetStatusName(settings.Query)
+	targetStatusName := s.makeTargetStatusName(settings.Query)
 
 	value, err := s.queryClient.Query(provisionServer, settings.Query, time.Now())
 	if err != nil {
@@ -154,7 +186,7 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 	if shouldUpdateAverageValue {
 		utils.SetTargetStatus(ctx.AutoscalerStatus, wingv1.TargetStatus{
 			Target:          targetStatusName,
-			Scaler:          PluginName,
+			Scaler:          s.pluginName,
 			DesiredReplicas: desiredReplicas,
 			Metric: wingv1.MetricTarget{
 				Type:         wingv1.AverageValueMetricType,
@@ -168,11 +200,11 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 	}, nil
 }
 
-func makeTargetStatusName(query string) string {
+func (s *scaler) makeTargetStatusName(query string) string {
 	b := bufferPool.Get().(*bytes.Buffer)
 	defer bufferPool.Put(b)
 
 	b.Reset()
 	b.WriteString(query)
-	return PluginName + "/" + utils.FarmHash(b)
+	return s.pluginName + "/" + utils.FarmHash(b)
 }

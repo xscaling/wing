@@ -27,12 +27,12 @@ func (f *fakeQueryClient) Query(server Server, query string, when time.Time) (fl
 
 func TestScaler(t *testing.T) {
 	// without default server
-	_, err := New(PluginConfig{
+	_, err := New("test", ScalerConfig{
 		Timeout: 10 & time.Second,
 	})
 	require.Error(t, err)
 	// invalid toleration
-	_, err = New(PluginConfig{
+	_, err = New("test", ScalerConfig{
 		Toleration: -0.1,
 		Timeout:    10 & time.Second,
 		DefaultServer: Server{
@@ -41,7 +41,7 @@ func TestScaler(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	testScaler, err := New(PluginConfig{
+	testScaler, err := New("test", ScalerConfig{
 		Toleration: 0.1,
 		Timeout:    10 & time.Second,
 		DefaultServer: Server{
@@ -175,7 +175,7 @@ func TestFailoverSettingsAreMutuallyExclusive(t *testing.T) {
 }
 
 func TestScalerFailAsLastValue(t *testing.T) {
-	testScaler, err := New(PluginConfig{
+	testScaler, err := New("test", ScalerConfig{
 		Toleration: 0.1,
 		Timeout:    10 & time.Second,
 		DefaultServer: Server{
@@ -213,7 +213,7 @@ func TestScalerFailAsLastValue(t *testing.T) {
 	require.Equal(t, int32(10), output.DesiredReplicas)
 
 	// Check status target
-	targetStatus, ok := utils.GetTargetStatus(status, makeTargetStatusName(settings.Query))
+	targetStatus, ok := utils.GetTargetStatus(status, testScaler.makeTargetStatusName(settings.Query))
 	require.True(t, ok)
 
 	require.NotNil(t, targetStatus.Metric.AverageValue)
@@ -249,7 +249,7 @@ func TestScalerFailAsLastValue(t *testing.T) {
 }
 
 func TestScalerFailAsZero(t *testing.T) {
-	testScaler, err := New(PluginConfig{
+	testScaler, err := New("test", ScalerConfig{
 		Toleration: 0.1,
 		Timeout:    10 & time.Second,
 		DefaultServer: Server{
@@ -287,7 +287,7 @@ func TestScalerFailAsZero(t *testing.T) {
 	require.Equal(t, int32(10), output.DesiredReplicas)
 
 	// Check status target
-	targetStatus, ok := utils.GetTargetStatus(status, makeTargetStatusName(settings.Query))
+	targetStatus, ok := utils.GetTargetStatus(status, testScaler.makeTargetStatusName(settings.Query))
 	require.True(t, ok)
 
 	require.NotNil(t, targetStatus.Metric.AverageValue)

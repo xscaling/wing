@@ -1,11 +1,10 @@
 package prometheus
 
 import (
-	"errors"
 	"fmt"
-	"time"
 
 	"github.com/xscaling/wing/core/engine"
+	"github.com/xscaling/wing/utils/scalerprovider/prometheus"
 )
 
 const (
@@ -20,28 +19,18 @@ func init() {
 }
 
 type PluginConfig struct {
-	Toleration    float64       `yaml:"toleration"`
-	Timeout       time.Duration `yaml:"timeout"`
-	DefaultServer Server        `yaml:"defaultServer"`
-}
-
-func (c PluginConfig) Validate() error {
-	if c.Toleration < 0 {
-		return errors.New("toleration must be non-negative")
-	}
-	if c.DefaultServer.ServerAddress == nil {
-		return errors.New("default server is required")
-	}
-	return nil
+	prometheus.ScalerConfig `yaml:",inline"`
 }
 
 func setup(c engine.Controller) error {
-	config := PluginConfig{}
+	config := PluginConfig{
+		ScalerConfig: *prometheus.NewDefaultConfig(),
+	}
 	ok, err := c.GetPluginConfig(PluginName, &config)
 	if !ok || err != nil {
 		return fmt.Errorf("plugin config is required: ok %v err %v", ok, err)
 	}
-	prometheusScaler, err := New(config)
+	prometheusScaler, err := prometheus.New(PluginName, config.ScalerConfig)
 	if err != nil {
 		return err
 	}
