@@ -13,8 +13,12 @@ const (
 	PluginEndpointReplicator = "Replicator"
 )
 
+type PluginConfig interface {
+	Validate() error
+}
+
 type Controller interface {
-	GetPluginConfig(name string, configReceiver interface{}) (ok bool, err error)
+	GetPluginConfig(name string, configReceiver PluginConfig) (ok bool, err error)
 	AddReplicator(name string, replicator Replicator)
 	AddScaler(name string, scaler Scaler)
 	GetKubernetesMetricsClient() metrics.MetricsClient

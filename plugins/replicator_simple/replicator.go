@@ -1,6 +1,7 @@
 package simple
 
 import (
+	"errors"
 	"time"
 
 	wingv1 "github.com/xscaling/wing/api/v1"
@@ -22,6 +23,13 @@ func NewDefaultConfig() *Config {
 	return &Config{
 		DownscaleStabilizationWindow: DefaultDownscaleStabilizationWindow,
 	}
+}
+
+func (c Config) Validate() error {
+	if c.DownscaleStabilizationWindow < 0 {
+		return errors.New("downscale stabilization window must be positive")
+	}
+	return nil
 }
 
 type timestampedRecommendation struct {

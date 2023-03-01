@@ -66,7 +66,7 @@ func (p *engineProvisioner) AddScaler(name string, scaler Scaler) {
 	p.scalers[name] = scaler
 }
 
-func (p *engineProvisioner) GetPluginConfig(name string, configReceiver interface{}) (ok bool, err error) {
+func (p *engineProvisioner) GetPluginConfig(name string, configReceiver PluginConfig) (ok bool, err error) {
 	rawConfig, ok := p.pluginConfigs[name]
 	if !ok {
 		return false, nil
@@ -75,7 +75,10 @@ func (p *engineProvisioner) GetPluginConfig(name string, configReceiver interfac
 	if typeOfConfigReceiver == nil || typeOfConfigReceiver.Kind() != reflect.Pointer {
 		return true, errors.New("plugin config receiver must be a non-nil pointer")
 	}
-	return true, rawConfig.Unmarshal(configReceiver)
+	if err := rawConfig.Unmarshal(configReceiver); err != nil {
+		return true, err
+	}
+	return true, configReceiver.Validate()
 }
 
 func (p *engineProvisioner) GetScaler(name string) (Scaler, bool) {
