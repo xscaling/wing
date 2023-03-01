@@ -1,4 +1,4 @@
-package podresourcescaler
+package podresource
 
 import (
 	"testing"

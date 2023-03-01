@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/xscaling/wing/core/engine"
-	"github.com/xscaling/wing/utils/podresourcescaler"
+	"github.com/xscaling/wing/utils/scalerprovider/podresource"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -21,18 +21,18 @@ func init() {
 }
 
 type PluginConfig struct {
-	podresourcescaler.Config `yaml:",inline"`
+	podresource.Config `yaml:",inline"`
 }
 
 func setup(c engine.Controller) error {
 	config := PluginConfig{
-		Config: *podresourcescaler.NewDefaultConfig(),
+		Config: *podresource.NewDefaultConfig(),
 	}
 	ok, err := c.GetPluginConfig(PluginName, &config)
 	if !ok || err != nil {
 		return fmt.Errorf("plugin config is required: ok %v err %v", ok, err)
 	}
-	podResourceScaler, err := podresourcescaler.New(PluginName, config.Config,
+	podResourceScaler, err := podresource.New(PluginName, config.Config,
 		corev1.ResourceMemory, c.GetKubernetesMetricsClient())
 	if err != nil {
 		return err
