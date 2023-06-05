@@ -189,6 +189,11 @@ func (in *ReplicaAutoscalerSpec) DeepCopyInto(out *ReplicaAutoscalerSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.ReplicatorSettings != nil {
+		in, out := &in.ReplicatorSettings, &out.ReplicatorSettings
+		*out = new(runtime.RawExtension)
+		(*in).DeepCopyInto(*out)
+	}
 	out.ScaleTargetRef = in.ScaleTargetRef
 	if in.MinReplicas != nil {
 		in, out := &in.MinReplicas, &out.MinReplicas

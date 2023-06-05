@@ -60,6 +60,11 @@ type ReplicaAutoscalerSpec struct {
 	// make final scaling decision
 	// +optional
 	Replicator *string `json:"replicator,omitempty"`
+
+	// ReplicatorSettings is the configuration of replicator
+	// +optional
+	ReplicatorSettings *runtime.RawExtension `json:"replicatorSettings,omitempty"`
+
 	// ScaleTargetRef points to the target resource to scale, and is used to the pods for which metrics
 	// should be collected, as well as to actually change the replica count.
 	ScaleTargetRef CrossVersionObjectReference `json:"scaleTargetRef"`
