@@ -8,8 +8,7 @@
 | --------------- | ---- | ------ | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | query           | 是   | string | 空                                | Prometheus 查询语句。特别注意数据的有效范围，Wing 只作用于所在集群的可伸缩对象。                                             |
 | threshold       | 是   | float  | 空                                | 弹性伸缩判定阈值                                                                                                             |
-| failAsZero      | 否   | bool   | false                             | 当查询失败时是否当作 0 处理。当 failAsZero 和 failAsLastValue 均为 false 且查询失败是阻塞弹性。且与 failAsLastValue 互斥。   |
-| failAsLastValue | 否   | bool   | false                             | 当查询失败时是否当作上一次的值处理。当 failAsZero 和 failAsLastValue 均为 false 且查询失败是阻塞弹性。且与 failAsZero 互斥。 |
+| failureMode      | 否   | bool   | false                             | 当查询失败时的处理方式（默认为中断弹性），可选有 `FailAsZero` 异常时判定值为 0；`FailAsLastValue` 异常是使用上一次存储的数值，如果没有可用数值则中断弹性。   |
 | serverAddress   | 否   | string | Wing 全局设置的 Prometheus Server | 自定义查询 Prometheus 源地址（兼容 Prometheus Query API 即可）                                                               |
 | insecureSSL     | 否   | bool   | false                             | 是否跳过 Prometheus Server 的 SSL 验证                                                                                       |
 | bearerToken     | 否   | string | 空                                | Prometheus Server Token Auth 的 Bearer Token                                                                                 |
