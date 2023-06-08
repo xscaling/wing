@@ -165,15 +165,6 @@ func TestScaler(t *testing.T) {
 	}
 }
 
-func TestFailoverSettingsAreMutuallyExclusive(t *testing.T) {
-	x := Settings{
-		FailAsZero:      pointer.Bool(true),
-		FailAsLastValue: pointer.Bool(true),
-	}
-	err := x.Validate()
-	require.Error(t, err)
-}
-
 func TestScalerFailAsLastValue(t *testing.T) {
 	testScaler, err := New("test", ScalerConfig{
 		Toleration: 0.1,
@@ -191,9 +182,9 @@ func TestScalerFailAsLastValue(t *testing.T) {
 	status := &wingv1.ReplicaAutoscalerStatus{}
 
 	settings := Settings{
-		Query:           "up",
-		Threshold:       10,
-		FailAsLastValue: pointer.Bool(true),
+		Query:       "up",
+		Threshold:   10,
+		FailureMode: FailAsLastValue,
 	}
 	parseRawSettings := func() []byte {
 		payload, err := json.Marshal(settings)
@@ -242,7 +233,7 @@ func TestScalerFailAsLastValue(t *testing.T) {
 	require.NotNil(t, err)
 
 	// Disable failover
-	settings.FailAsLastValue = pointer.Bool(false)
+	settings.FailureMode = FailAsError
 	ctx.RawSettings = parseRawSettings()
 	_, err = testScaler.Get(ctx)
 	require.NotNil(t, err)
@@ -265,9 +256,9 @@ func TestScalerFailAsZero(t *testing.T) {
 	status := &wingv1.ReplicaAutoscalerStatus{}
 
 	settings := Settings{
-		Query:      "up",
-		Threshold:  10,
-		FailAsZero: pointer.Bool(true),
+		Query:       "up",
+		Threshold:   10,
+		FailureMode: FailAsZero,
 	}
 	parseRawSettings := func() []byte {
 		payload, err := json.Marshal(settings)
@@ -302,7 +293,7 @@ func TestScalerFailAsZero(t *testing.T) {
 	require.Equal(t, int32(0), output.DesiredReplicas)
 
 	// Disable failover
-	settings.FailAsZero = pointer.Bool(false)
+	settings.FailureMode = FailAsError
 	ctx.RawSettings = parseRawSettings()
 	_, err = testScaler.Get(ctx)
 	require.NotNil(t, err)

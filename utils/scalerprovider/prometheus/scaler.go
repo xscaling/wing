@@ -72,24 +72,29 @@ type Server struct {
 	// Do not supports TLS authentication currently
 }
 
+type FailureMode string
+
+const (
+	// This will abort scaling when error occurred
+	FailAsError FailureMode = ""
+	// Return zero value when error occurred
+	FailAsZero FailureMode = "FailAsZero"
+	// Return last value stored in status when error occurred, if there is no last value stored then abort scaling
+	FailAsLastValue FailureMode = "FailAsLastValue"
+)
+
 type Settings struct {
+	Server `json:",inline"`
+
 	// Must be a single positive vector response query
 	Query string `json:"query"`
 	// To filter out jitter of metric
 	Threshold float64 `json:"threshold"`
 
-	// Failover settings
-	// 1. If the query result is null or failed then abort scaling
-	// 2. If the query result is null or failed and FailAsZero then regard as zero value
-	// 3. If the query result is null or failed and FailAsLastValue then use latest value stored in status as result.
-	//    If there is no latest value stored in status then will abort scaling as well.
-	// FailAsZero and FailAsLastValue are mutually exclusive.
-	// Those fallback strategies are aims to avoid scale down when the metric is not available.
+	// Those fallback strategies are aims to avoid scale down or abort when the metric is not available.
 	// WARNING: Failover won't working after modify query string
-	FailAsZero      *bool `json:"failAsZero,omitempty"`
-	FailAsLastValue *bool `json:"failAsLastValue,omitempty"`
-
-	Server `json:",inline"`
+	// Default `FailAsError` means return error when query prometheus failed and this will prevent scaling.
+	FailureMode FailureMode `yaml:"failureMode,omitempty"`
 }
 
 func (s *Settings) Validate() error {
@@ -98,9 +103,6 @@ func (s *Settings) Validate() error {
 	}
 	if s.Threshold <= 0 {
 		return errors.New("threshold must be positive")
-	}
-	if s.FailAsZero != nil && *s.FailAsZero && s.FailAsLastValue != nil && *s.FailAsLastValue {
-		return errors.New("failAsZero and failAsLastValue are mutually exclusive")
 	}
 	return nil
 }
@@ -153,17 +155,20 @@ func (s *scaler) CalculateDesiredReplicas(ctx engine.ScalerContext, settings *Se
 		// To avoid override status and doing nonsense update
 		shouldUpdateAverageValue = false
 
-		if utils.GetPointerBoolValue(settings.FailAsZero, false) {
-			value = 0
-		} else if utils.GetPointerBoolValue(settings.FailAsLastValue, false) {
+		switch settings.FailureMode {
+		case FailAsError:
+			return nil, err
+		case FailAsLastValue:
 			// Try to get last value from status
 			if targetStatus, ok := utils.GetTargetStatus(ctx.AutoscalerStatus, targetStatusName); ok {
 				averageValue = float64(targetStatus.Metric.AverageValue.MilliValue()) / 1000
 			} else {
 				return nil, fmt.Errorf("unable to get latest value from status when failover is enabled: %s", err)
 			}
-		} else {
-			return nil, err
+		case FailAsZero:
+			value = 0
+		default:
+			return nil, fmt.Errorf("unknown failure mode: `%s`", settings.FailureMode)
 		}
 	}
 	// Empty result or return zero indeed
