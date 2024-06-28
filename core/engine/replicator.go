@@ -7,6 +7,7 @@ import (
 )
 
 type Replicator interface {
+	GetName() string
 	GetDesiredReplicas(ctx ReplicatorContext) (int32, error)
 }
 
