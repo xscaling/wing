@@ -11,6 +11,7 @@ const (
 	ConditionScaleLimited   ConditionType = "ScaleLimited"
 	ConditionReady          ConditionType = "Ready"
 	ConditionPanicMode      ConditionType = "PanicMode"
+	ConditionExhausted      ConditionType = "Exhausted"
 )
 
 type Conditions []Condition
