@@ -19,7 +19,8 @@ package v1
 import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // MetricTargetType specifies the type of metric being targeted, and should be either
@@ -85,6 +86,9 @@ type ReplicaAutoscalerSpec struct {
 	// +kubebuilder:validation:Optional
 	// +optional
 	Strategy *ReplicaAutoscalerStrategy `json:"strategy,omitempty"`
+
+	// +optional
+	Exhaust *Exhaust `json:"exhaust,omitempty" yaml:"exhaust,omitempty"`
 }
 
 type ReplicaAutoscalerStrategy struct {
@@ -121,6 +125,29 @@ type ScheduleTargetSettings struct {
 	End      string `json:"end"`
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Settings *runtime.RawExtension `json:"settings"`
+}
+
+// Exhaust is the settings for exhaust checking
+type Exhaust struct {
+	// Type of exhaust mode, only `Pending` is currently supported.
+	Type ExhaustType `json:"type,omitempty" yaml:"type,omitempty"`
+
+	// Pending is the details for exhaust check config.
+	// If oldest pending pod life is not shorter than timeout,
+	// and percentage or number of pending pod(s) is not smaller than threshold,
+	// then the exhaust mode will be triggered.
+	Pending *ExhaustPending `json:"pending,omitempty" yaml:"pending,omitempty"`
+}
+
+type ExhaustType string
+
+const (
+	ExhaustOnPending ExhaustType = "Pending"
+)
+
+type ExhaustPending struct {
+	Threshold      intstr.IntOrString `json:"threshold" yaml:"threshold"`
+	TimeoutSeconds int32              `json:"timeout" yaml:"timeout"`
 }
 
 // ReplicaAutoscalerStatus defines the observed state of ReplicaAutoscaler
