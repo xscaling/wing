@@ -165,6 +165,29 @@ spec:
                   - settings
                   type: object
                 type: array
+              exhaust:
+                description: Exhaust is the settings for exhaust checking.
+                properties:
+                  type:
+                    type: string
+                    description: Type of exhaust mode, only `Pending` is currently supported.
+                  pending:
+                    description: Pending is the details for exhaust check config.
+                      If oldest pending pod life is not shorter than timeout,
+                      and percentage or number of pending pod(s) is not smaller than threshold,
+                      then the exhaust mode will be triggered.
+                    type: object
+                    properties:
+                      threshold:
+                        description:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                      timeoutSeconds:
+                        type: integer
+                type: object
+                required:
+                - type
             required:
             - maxReplicas
             - scaleTargetRef
