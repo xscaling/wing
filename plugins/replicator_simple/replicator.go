@@ -79,6 +79,10 @@ func (r *replicator) stabilizeRecommendation(key string, normalizedDesiredReplic
 	return maxRecommendation
 }
 
+func (r *replicator) GetName() string {
+	return "simple"
+}
+
 func (r *replicator) GetDesiredReplicas(ctx engine.ReplicatorContext) (int32, error) {
 	logger := r.logger.WithValues("namespace", ctx.Autoscaler.Namespace, "replicaAutoscaler", ctx.Autoscaler.Name)
 
