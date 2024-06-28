@@ -16,3 +16,14 @@ type ReplicatorContext struct {
 	Scale         *autoscalingv1.Scale
 	ScalersOutput map[string]ScalerOutput
 }
+
+func (rc ReplicatorContext) GetScalerOutput(r Replicator) map[string]ScalerOutput {
+	outputForReplicator := make(map[string]ScalerOutput)
+	for scaler, scalerOutput := range rc.ScalersOutput {
+		if !scalerOutput.ReplicatedBy(r) {
+			continue
+		}
+		outputForReplicator[scaler] = scalerOutput
+	}
+	return outputForReplicator
+}

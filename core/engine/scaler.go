@@ -10,8 +10,22 @@ import (
 )
 
 type ScalerOutput struct {
+	Settings            interface{}
 	DesiredReplicas     int32
 	ManagedTargetStatus []string
+
+	replicatedChecker func(r Replicator) bool
+}
+
+func (o *ScalerOutput) ReplicatedBy(r Replicator) bool {
+	if o.replicatedChecker == nil {
+		return true
+	}
+	return o.replicatedChecker(r)
+}
+
+func (o *ScalerOutput) SetReplicatorLimited(checker func(Replicator) bool) {
+	o.replicatedChecker = checker
 }
 
 type Scaler interface {
