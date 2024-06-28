@@ -20,6 +20,7 @@ type PluginConfig interface {
 type Controller interface {
 	GetPluginConfig(name string, configReceiver PluginConfig) (ok bool, err error)
 	AddReplicator(name string, replicator Replicator)
+	GetReplicator(name string) (Replicator, bool)
 	AddScaler(name string, scaler Scaler)
 	GetKubernetesMetricsClient() metrics.MetricsClient
 	GetEventRecorder() record.EventRecorder
