@@ -8,7 +8,6 @@ import (
 	"go/format"
 	"log"
 	"os"
-	"sort"
 	"strings"
 )
 
@@ -21,10 +20,17 @@ const (
 	replicatorFlagLine = ">>> Replicator"
 )
 
+type pluginInfo struct {
+	name string
+	repo string
+}
+
+type pluginMap map[string][]pluginInfo
+
 func main() {
-	pluginsMapping := map[string]map[string]string{
-		"scaler":     make(map[string]string),
-		"replicator": make(map[string]string),
+	pluginsMapping := pluginMap{
+		"scaler":     make([]pluginInfo, 0),
+		"replicator": make([]pluginInfo, 0),
 	}
 
 	file, err := os.Open(pluginFile)
@@ -58,21 +64,24 @@ func main() {
 		}
 		name, repo := items[0], items[1]
 
-		if _, ok := pluginsMapping[flag][name]; ok {
-			log.Fatalf("Duplicate entry %q", name)
+		for _, item := range pluginsMapping[flag] {
+			if item.name == name {
+				log.Fatalf("Duplicate entry %q", name)
+			}
 		}
 
-		pluginsMapping[flag][name] = pluginPath + repo // Default, unless overridden by 3rd arg
-
+		path := pluginPath + repo                               // Default, unless overridden by 3rd arg
 		if _, err := os.Stat(pluginFSPath + repo); err != nil { // External package has been given
-			pluginsMapping[flag][name] = repo
+			path = repo
 		}
+
+		pluginsMapping[flag] = append(pluginsMapping[flag], pluginInfo{name, path})
 	}
 	genImports("core/engine/plugin/pluginz.go", "plugin", pluginsMapping)
 	genDirectives("core/engine/pluginz.go", "engine", pluginsMapping)
 }
 
-func genImports(file, pack string, pluginsMapping map[string]map[string]string) {
+func genImports(file, pack string, pluginsMapping pluginMap) {
 	outs := header + "package " + pack + "\n\n" + "import ("
 
 	if pluginCount := len(pluginsMapping["scaler"]) + len(pluginsMapping["replicator"]); pluginCount > 0 {
@@ -81,8 +90,8 @@ func genImports(file, pack string, pluginsMapping map[string]map[string]string) 
 
 	outs += "\t// Include all plugins.\n"
 	for _, plugins := range pluginsMapping {
-		for _, pack := range plugins {
-			outs += `	_ "` + pack + `"` + "\n"
+		for _, plugin := range plugins {
+			outs += `	_ "` + plugin.repo + `"` + "\n"
 		}
 	}
 	outs += ")\n"
@@ -92,7 +101,7 @@ func genImports(file, pack string, pluginsMapping map[string]map[string]string) 
 	}
 }
 
-func genDirectives(file, pack string, pluginsMapping map[string]map[string]string) {
+func genDirectives(file, pack string, pluginsMapping pluginMap) {
 	outs := `%spackage %s
 
 	var (	
@@ -102,17 +111,15 @@ func genDirectives(file, pack string, pluginsMapping map[string]map[string]strin
 	)
 `
 	var (
-		replicators sort.StringSlice
-		scalers     sort.StringSlice
+		replicators []string
+		scalers     []string
 	)
-	for pluginName := range pluginsMapping["replicator"] {
-		replicators = append(replicators, `"`+pluginName+`"`)
+	for _, plugin := range pluginsMapping["replicator"] {
+		replicators = append(replicators, `"`+plugin.name+`"`)
 	}
-	for pluginName := range pluginsMapping["scaler"] {
-		scalers = append(scalers, `"`+pluginName+`"`)
+	for _, plugin := range pluginsMapping["scaler"] {
+		scalers = append(scalers, `"`+plugin.name+`"`)
 	}
-	replicators.Sort()
-	scalers.Sort()
 
 	if err := formatAndWrite(file, fmt.Sprintf(outs,
 		header, pack,
