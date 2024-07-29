@@ -58,7 +58,7 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger,
 
 	gvkr, scale, err := r.getScaleTarget(logger, autoscaler)
 	if err != nil {
-		logger.Info("Unable to get scale target: %v", err)
+		logger.Error(err, "Unable to get scale target")
 		autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
 			Type:    wingv1.ConditionReady,
 			Reason:  "FailedToGetScaleTarget",
@@ -165,12 +165,12 @@ func (r *ReplicaAutoscalerReconciler) getScaleTarget(logger logr.Logger,
 	gvkr, err := utils.ParseGVKR(r.restMapper,
 		autoscaler.Spec.ScaleTargetRef.APIVersion, autoscaler.Spec.ScaleTargetRef.Kind)
 	if err != nil {
-		logger.Info("Failed to parse GVKR: %v", err)
+		logger.Error(err, "Failed to parse GVKR")
 		return wingv1.GroupVersionKindResource{}, nil, err
 	}
 	scale, err := r.isTargetScalable(gvkr, autoscaler.Namespace, autoscaler.Spec.ScaleTargetRef.Name)
 	if err != nil {
-		logger.Info("Target(%s) is unscalable: %v", gvkr.GVKString(), err)
+		logger.Error(err, "Target is unscalable", "target", gvkr.GVKString())
 		return wingv1.GroupVersionKindResource{}, nil, err
 	}
 	return gvkr, scale, nil
