@@ -369,10 +369,12 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger,
 	if desiredReplicas > maxReplicas {
 		desiredReplicas = maxReplicas
 		scalingLimitedReason = "ReachMaxReplicas"
+		logger.V(4).Info("Desired replicas exceed max replicas", "desiredReplicas", desiredReplicas, "maxReplicas", maxReplicas)
 	}
 	if desiredReplicas < minReplicas {
 		desiredReplicas = minReplicas
 		scalingLimitedReason = "ReachMinimalReplicas"
+		logger.V(4).Info("Desired replicas below min replicas", "desiredReplicas", desiredReplicas, "minReplicas", minReplicas)
 	}
 	if scale.Spec.Replicas != desiredReplicas {
 		if scale.Spec.Replicas < desiredReplicas {
