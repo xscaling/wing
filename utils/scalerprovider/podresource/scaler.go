@@ -75,7 +75,9 @@ func (s *scaler) Get(ctx engine.ScalerContext) (*engine.ScalerOutput, error) {
 		return nil, fmt.Errorf("failed to list pods: %v", err)
 	}
 	if len(pods) == 0 {
-		s.logger.WithValues("namespace", ctx.Namespace, "scaleTargetRef", ctx.ScaleTargetRef.Name).Info("No pods found by selector for calculation, keep current replicas")
+		s.logger.WithValues(
+			"namespace", ctx.Namespace, "scaleTargetRef", ctx.ScaleTargetRef.Name).
+			Info("No pods found by selector for calculation, keep current replicas")
 		return &engine.ScalerOutput{
 			DesiredReplicas:     ctx.CurrentReplicas,
 			ManagedTargetStatus: []string{s.pluginName},

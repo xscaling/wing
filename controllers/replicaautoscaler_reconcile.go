@@ -28,10 +28,12 @@ import (
 
 	"github.com/go-logr/logr"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -56,7 +58,7 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger,
 
 	gvkr, scale, err := r.getScaleTarget(logger, autoscaler)
 	if err != nil {
-		logger.Info("Unable to get scale target: %v", err)
+		logger.Error(err, "Unable to get scale target")
 		autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
 			Type:    wingv1.ConditionReady,
 			Reason:  "FailedToGetScaleTarget",
@@ -66,6 +68,51 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger,
 
 		return NotRequeue
 	}
+
+	isExhaust := false
+	exhaustedCondition := wingv1.Condition{
+		Type:               wingv1.ConditionExhausted,
+		Status:             metav1.ConditionFalse,
+		LastTransitionTime: metav1.Now(),
+	}
+	if exhaust := autoscaler.Spec.Exhaust; exhaust != nil && exhaust.Type != wingv1.ExhaustOnPending {
+		scaledObjectSelector, err := labels.Parse(scale.Status.Selector)
+		if err != nil {
+			logger.Error(err, "couldn't convert selector into a corresponding target selector object")
+			return RequeueDelayOnErrorState
+		}
+		pods, err := r.Engine.InformerFactory.PodLister().Pods(autoscaler.Namespace).List(scaledObjectSelector)
+		if err != nil {
+			return RequeueDelayOnErrorState
+		}
+		pendingCount := 0
+		oldestPendingBornAt := time.Now()
+		for _, pod := range pods {
+			if pod.Status.Phase != corev1.PodPending {
+				continue
+			}
+			pendingCount++
+			if createdAt := pod.CreationTimestamp.Time; createdAt.Before(oldestPendingBornAt) {
+				oldestPendingBornAt = createdAt
+			}
+		}
+		numberThreshold, err := intstr.GetScaledValueFromIntOrPercent(
+			&exhaust.Pending.Threshold, int(autoscaler.Status.CurrentReplicas), true)
+		if err != nil {
+			return RequeueDelayOnErrorState
+		}
+		isExhaust = numberThreshold > pendingCount &&
+			time.Since(oldestPendingBornAt) > time.Duration(exhaust.Pending.TimeoutSeconds)*time.Second
+		if isExhaust {
+			exhaustedCondition.Status = metav1.ConditionTrue
+			exhaustedCondition.Reason = "ExhaustedOnPending"
+			exhaustedCondition.Message = fmt.Sprintf(
+				"Pending pods count is over threshold `%d` and oldest pending pod waiting over timeout `%d` second(s)",
+				numberThreshold, exhaust.Pending.TimeoutSeconds,
+			)
+		}
+	}
+	autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, exhaustedCondition)
 
 	observingAutoscaler := autoscaler.DeepCopy()
 
@@ -118,12 +165,12 @@ func (r *ReplicaAutoscalerReconciler) getScaleTarget(logger logr.Logger,
 	gvkr, err := utils.ParseGVKR(r.restMapper,
 		autoscaler.Spec.ScaleTargetRef.APIVersion, autoscaler.Spec.ScaleTargetRef.Kind)
 	if err != nil {
-		logger.Info("Failed to parse GVKR: %v", err)
+		logger.Error(err, "Failed to parse GVKR")
 		return wingv1.GroupVersionKindResource{}, nil, err
 	}
 	scale, err := r.isTargetScalable(gvkr, autoscaler.Namespace, autoscaler.Spec.ScaleTargetRef.Name)
 	if err != nil {
-		logger.Info("Target(%s) is unscalable: %v", gvkr.GVKString(), err)
+		logger.Error(err, "Target is unscalable", "target", gvkr.GVKString())
 		return wingv1.GroupVersionKindResource{}, nil, err
 	}
 	return gvkr, scale, nil
@@ -291,8 +338,11 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger,
 		scalingLimitedReason = ""
 
 		maxReplicas = autoscaler.Spec.MaxReplicas
-		minReplicas = *autoscaler.Spec.MinReplicas
+		minReplicas = int32(1)
 	)
+	if autoscaler.Spec.MinReplicas != nil {
+		minReplicas = *autoscaler.Spec.MinReplicas
+	}
 	autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
 		Type:   wingv1.ConditionReplicaPatched,
 		Status: metav1.ConditionFalse,
@@ -319,11 +369,15 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger,
 	if desiredReplicas > maxReplicas {
 		desiredReplicas = maxReplicas
 		scalingLimitedReason = "ReachMaxReplicas"
-	} else if desiredReplicas < minReplicas {
+		logger.Info("Desired replicas exceed max replicas", "desiredReplicas", desiredReplicas, "maxReplicas", maxReplicas)
+	}
+	if desiredReplicas < minReplicas {
 		desiredReplicas = minReplicas
 		scalingLimitedReason = "ReachMinimalReplicas"
-	} else if scale.Spec.Replicas != desiredReplicas {
-		if scale.Spec.Replicas > desiredReplicas {
+		logger.Info("Desired replicas below min replicas", "desiredReplicas", desiredReplicas, "minReplicas", minReplicas)
+	}
+	if scale.Spec.Replicas != desiredReplicas {
+		if scale.Spec.Replicas < desiredReplicas {
 			// ScaleUp
 			r.EventRecorder.Eventf(autoscaler, wingv1.EventTypeNormal, wingv1.EventReasonScaling, "New replica %d; resource(s) are requiring scale-up", desiredReplicas)
 		} else {
