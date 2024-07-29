@@ -338,8 +338,11 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger,
 		scalingLimitedReason = ""
 
 		maxReplicas = autoscaler.Spec.MaxReplicas
-		minReplicas = *autoscaler.Spec.MinReplicas
+		minReplicas = wingv1.DefaultMinReplicas
 	)
+	if autoscaler.Spec.MinReplicas != nil {
+		minReplicas = *autoscaler.Spec.MinReplicas
+	}
 	autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
 		Type:   wingv1.ConditionReplicaPatched,
 		Status: metav1.ConditionFalse,

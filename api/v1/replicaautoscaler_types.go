@@ -91,6 +91,11 @@ type ReplicaAutoscalerSpec struct {
 	Exhaust *Exhaust `json:"exhaust,omitempty" yaml:"exhaust,omitempty"`
 }
 
+const (
+	// DefaultMinReplicas is the default maximum number of replicas if not provided
+	DefaultMinReplicas int32 = 1
+)
+
 type ReplicaAutoscalerStrategy struct {
 	// Panic Mode
 	// Panic Windows in seconds indicates how long the panic mode will last after startup.
