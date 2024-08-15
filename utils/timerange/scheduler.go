@@ -4,7 +4,6 @@ import "time"
 
 type Scheduler interface {
 	Contains(when time.Time) bool
-	GetUpcomingTriggerDuration(when time.Time) (start, end time.Time)
 	GetStart() string
 	GetEnd() string
 	GetTimezone() *time.Location

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/robfig/cron/v3"
+	"github.com/xscaling/wing/utils/cron"
 )
 
 var (
@@ -68,23 +68,11 @@ func NewCronScheduler(timezone *time.Location, start, end string) (*CronSchedule
 	return s, nil
 }
 
-func (s *CronScheduler) GetUpcomingTriggerDuration(when time.Time) (start, end time.Time) {
-	whenInTimezone := when.In(s.timezone)
-	return s.startSched.Next(whenInTimezone), s.endSched.Next(whenInTimezone)
-}
-
 func (s *CronScheduler) Contains(when time.Time) bool {
 	whenInTimezone := when.In(s.timezone)
-
-	start, end := s.GetUpcomingTriggerDuration(whenInTimezone)
-	var (
-		nextStartTimestamp = start.Unix()
-		nextEndTimestamp   = end.Unix()
-		currentTimestamp   = whenInTimezone.Unix()
-	)
-	// current timestamp always before next start timestamp
-	// so if current timestamp is before next end timestamp(strong requirement) and next start timestamp is after next end timestamp
-	// then current timestamp is in the range of duration.
-	// In short, current timestamp before end but already started.
-	return nextStartTimestamp > nextEndTimestamp && currentTimestamp <= nextEndTimestamp
+	lastStart := s.startSched.Previous(whenInTimezone)
+	nextStart := s.startSched.Next(whenInTimezone)
+	nextEnd := s.endSched.Next(whenInTimezone)
+	// when in [lastStart, nextEnd) and nextStart > nextEnd
+	return whenInTimezone.After(lastStart) && whenInTimezone.Before(nextEnd) && nextStart.After(nextEnd)
 }
