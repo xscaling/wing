@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func isSchedulePeriodContains(when time.Time, scheduleSettings wingv1.ScheduleTargetSettings) (bool, error) {
@@ -270,5 +271,58 @@ func BenchmarkIsSchedulePeriodContainsWithDate(b *testing.B) {
 			Start:    "2021-01-01 10:00",
 			End:      "2021-01-01 20:00",
 		})
+	}
+}
+
+func TestGetScheduledSettingsRaw(t *testing.T) {
+	settings := wingv1.TargetSettings{
+		Default: &runtime.RawExtension{
+			Raw: []byte(`{"a":"b","c":"d"}`),
+		},
+		Schedules: []wingv1.ScheduleTargetSettings{
+			{
+				Start:    "0 8 * * *",
+				End:      "0 10 * * *",
+				Timezone: "Asia/Shanghai",
+				Settings: &runtime.RawExtension{
+					Raw: []byte(`{"a":"x","e":"f"}`),
+				},
+			},
+		},
+	}
+	for _, c := range []struct {
+		date    string
+		payload string
+	}{
+		{
+			date:    "2021-01-01 7:59",
+			payload: `{"a":"b","c":"d"}`,
+		},
+		{
+			date:    "2021-01-01 8:00",
+			payload: `{"a":"x","c":"d","e":"f"}`,
+		},
+		{
+			date:    "2021-01-01 9:00",
+			payload: `{"a":"x","c":"d","e":"f"}`,
+		},
+		{
+			date:    "2021-01-01 9:59",
+			payload: `{"a":"x","c":"d","e":"f"}`,
+		},
+		{
+			date:    "2021-01-01 10:00",
+			payload: `{"a":"b","c":"d"}`,
+		},
+		{
+			date:    "2021-01-01 10:01",
+			payload: `{"a":"b","c":"d"}`,
+		},
+	} {
+		date, err := time.ParseInLocation(timerange.SchedulePeriodDateFormat, c.date, time.Local)
+		require.NoError(t, err)
+		payload, err := GetScheduledSettingsRaw(date, settings)
+		require.NoError(t, err)
+		require.Equal(t, c.payload, string(payload))
 	}
 }

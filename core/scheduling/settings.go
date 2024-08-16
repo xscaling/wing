@@ -33,6 +33,7 @@ func GetScheduledSettingsRaw(when time.Time, settings wingv1.TargetSettings) (pa
 		}
 
 		if scheduler.Contains(when) {
+			hitScheduleSettingsPayload = make([]byte, len(schedule.Settings.Raw))
 			copy(hitScheduleSettingsPayload, schedule.Settings.Raw)
 			break
 		}
