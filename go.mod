@@ -24,6 +24,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.13.1
 )
 
+replace github.com/robfig/cron/v3 v3.0.1 => github.com/juliev0/cron/v3 v3.0.2-0.20220310063235-7181f74c09e9 // https://github.com/robfig/cron/pull/437
+
 require (
 	cloud.google.com/go v0.97.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect

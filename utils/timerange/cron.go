@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xscaling/wing/utils/cron"
+	"github.com/robfig/cron/v3"
 )
 
 var (
@@ -70,7 +70,7 @@ func NewCronScheduler(timezone *time.Location, start, end string) (*CronSchedule
 
 func (s *CronScheduler) Contains(when time.Time) bool {
 	whenInTimezone := when.In(s.timezone)
-	lastStart := s.startSched.Previous(whenInTimezone)
+	lastStart := s.startSched.Prev(whenInTimezone)
 	nextStart := s.startSched.Next(whenInTimezone)
 	nextEnd := s.endSched.Next(whenInTimezone)
 	// when in [lastStart, nextEnd) and nextStart > nextEnd
