@@ -3,15 +3,12 @@ package client
 import (
 	"net/http"
 
-	"github.com/xscaling/wing/utils/http/client/sign"
-
 	"github.com/go-resty/resty/v2"
 )
 
 type Client struct {
 	requester *Requester
 	endpoint  string
-	signer    sign.Signer
 }
 
 func NewClient(requester *Requester, endpoint string) *Client {
@@ -35,7 +32,7 @@ func (c *Client) Request(method string, resourceFormat string, options ...Option
 		}
 	}
 	resp, err := c.requester.do(
-		opts.GetSigner(), method, c.endpoint, opts.Body(), opts.Headers(), resourceFormat, opts.Args()...)
+		opts.GetSigner(), method, c.endpoint, opts.Body(), opts.Headers(), resourceFormat, opts.Query())
 	if err != nil {
 		return resp, err
 	}
