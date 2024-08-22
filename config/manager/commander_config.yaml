@@ -9,5 +9,8 @@ plugins:
     timeout: 5s
     defaultServer:
       serverAddress: http://prometheus
+  rabbitmq:
+    toleration: 0.05
+    timeout: 5s
   # using default config
   simple: {}

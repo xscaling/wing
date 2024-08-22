@@ -1,10 +1,13 @@
 package client
 
-import "github.com/xscaling/wing/utils/http/client/sign"
+import (
+	"github.com/xscaling/wing/utils/http/client/sign"
+	"net/url"
+)
 
 type Options struct {
 	signer             sign.Signer
-	args               []interface{}
+	query              url.Values
 	body               interface{}
 	headers            map[string]string
 	receiver           interface{}
@@ -22,8 +25,8 @@ func (o Options) Signer() sign.Signer {
 	return o.signer
 }
 
-func (o Options) Args() []interface{} {
-	return o.args
+func (o Options) Query() url.Values {
+	return o.query
 }
 
 func (o Options) Body() interface{} {
@@ -51,10 +54,9 @@ func WithSigner(signer sign.Signer) Option {
 	}
 }
 
-func WithArgs(args ...interface{}) Option {
+func WithQuery(query url.Values) Option {
 	return func(o *Options) error {
-		o.args = make([]interface{}, len(args))
-		copy(o.args, args)
+		o.query = query
 		return nil
 	}
 }

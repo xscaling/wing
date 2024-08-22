@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/xscaling/wing/utils/http/client/encoding"
@@ -61,9 +62,9 @@ func (r Requester) preRequestHook(_ *resty.Client, request *http.Request) error 
 
 func (r Requester) do(
 	signer sign.Signer, method, endpoint string, requestBody interface{},
-	headers map[string]string, resourceFormat string, args ...interface{},
+	headers map[string]string, resourceFormat string, query url.Values,
 ) (*resty.Response, error) {
-	url := fmt.Sprintf("%s/%s", endpoint, fmt.Sprintf(resourceFormat, args...))
+	fullURL := fmt.Sprintf("%s/%s?%s", endpoint, resourceFormat, query.Encode())
 	// As using dynamic signer potentially, we need to set preRequestHook every request to avoid polluting Requester
 	request := r.client.R()
 	request.SetHeaders(headers).
@@ -77,5 +78,5 @@ func (r Requester) do(
 		}
 		request.SetBody(encodedRequestBody)
 	}
-	return request.Execute(method, url)
+	return request.Execute(method, fullURL)
 }
