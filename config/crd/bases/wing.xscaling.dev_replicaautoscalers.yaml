@@ -82,6 +82,9 @@ spec:
                 description: Replicator specified which replicator used for aggregating
                   scalers output and make final scaling decision
                 type: string
+              replicatorSettings:
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               scaleTargetRef:
                 description: ScaleTargetRef points to the target resource to scale,
                   and is used to the pods for which metrics should be collected, as
