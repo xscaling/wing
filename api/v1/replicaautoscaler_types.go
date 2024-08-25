@@ -63,6 +63,7 @@ type ReplicaAutoscalerSpec struct {
 	Replicator *string `json:"replicator,omitempty"`
 
 	// ReplicatorSettings is the configuration of replicator
+	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	ReplicatorSettings *runtime.RawExtension `json:"replicatorSettings,omitempty"`
 
