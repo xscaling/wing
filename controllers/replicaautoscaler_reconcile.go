@@ -75,7 +75,7 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger,
 		Status:             metav1.ConditionFalse,
 		LastTransitionTime: metav1.Now(),
 	}
-	if exhaust := autoscaler.Spec.Exhaust; exhaust != nil && exhaust.Type != wingv1.ExhaustOnPending {
+	if exhaust := autoscaler.Spec.Exhaust; exhaust != nil && exhaust.Type == wingv1.ExhaustOnPending {
 		scaledObjectSelector, err := labels.Parse(scale.Status.Selector)
 		if err != nil {
 			logger.Error(err, "couldn't convert selector into a corresponding target selector object")
@@ -101,7 +101,7 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger,
 		if err != nil {
 			return RequeueDelayOnErrorState
 		}
-		isExhaust = numberThreshold > pendingCount &&
+		isExhaust = pendingCount > numberThreshold &&
 			time.Since(oldestPendingBornAt) > time.Duration(exhaust.Pending.TimeoutSeconds)*time.Second
 		if isExhaust {
 			exhaustedCondition.Status = metav1.ConditionTrue
