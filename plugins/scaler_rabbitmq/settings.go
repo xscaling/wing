@@ -55,6 +55,8 @@ type Settings struct {
 	// Either http or amqp protocol
 	// If empty, it will be set from host scheme
 	Protocol Protocol `json:"protocol"`
+	// Timeout which may override the default one in scaler
+	Timeout *time.Duration `json:"timeout,omitempty"`
 
 	// Name of queue
 	QueueName string `json:"queueName"`
@@ -78,6 +80,7 @@ func (s *Settings) Validate() error {
 		"mode is required with valid value":                     s.Mode != ModeMessageRate && s.Mode != ModeQueueLength,
 		"value must be positive":                                s.Value <= 0,
 		fmt.Sprintf("host is invalid: %s", err):                 err != nil,
+		"invalid timeout":                                       s.Timeout != nil && *s.Timeout < 0,
 		"queue name is required":                                s.QueueName == "",
 		"operation is required with valid value if using regex": s.UseRegex && s.Operation != OperationSum && s.Operation != OperationAvg && s.Operation != OperationMax,
 	} {

@@ -61,7 +61,12 @@ func (s *scaler) Get(ctx engine.ScalerContext) (so *engine.ScalerOutput, err err
 	if err != nil {
 		return
 	}
-	metricValue, err := settings.request(s.Timeout)
+
+	timeout := s.Timeout
+	if t := settings.Timeout; t != nil {
+		timeout = *t
+	}
+	metricValue, err := settings.request(timeout)
 	if err != nil {
 		return
 	}
