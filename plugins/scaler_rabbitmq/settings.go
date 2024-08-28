@@ -28,6 +28,15 @@ const (
 	ProtocolAMQP Protocol = "amqp"
 )
 
+type MessageType string
+
+const (
+	MessageTypeAll            MessageType = "all"
+	MessageTypeUnacknowledged MessageType = "unacknowledged"
+	MessageTypeReady          MessageType = "ready"
+	DefaultMessageType                    = MessageTypeAll
+)
+
 type Operation string
 
 const (
@@ -51,6 +60,8 @@ type Settings struct {
 	QueueName string `json:"queueName"`
 	// Override the vhost from the connection info
 	VhostName *string `json:"vhostName"`
+	// Message type
+	MessageType MessageType `json:"messageType"`
 
 	// Specify if the queueName contains a regex
 	UseRegex bool `json:"useRegex"`
@@ -85,6 +96,15 @@ func (s *Settings) Validate() error {
 				return fmt.Errorf("unknown host URL scheme `%s`", hostURL.Scheme)
 			}
 		}
+	}
+	switch s.MessageType {
+	case MessageTypeAll, MessageTypeUnacknowledged, MessageTypeReady:
+		// Valid, do nothing
+	case "":
+		// Fill with default value
+		s.MessageType = DefaultMessageType
+	default:
+		return fmt.Errorf("unknown message type `%s`", s.MessageType)
 	}
 	return nil
 }
@@ -183,7 +203,18 @@ func (s *Settings) requestViaHTTP(timeout time.Duration) (messages int, publishR
 			return
 		}
 	}
-	return info.Messages, info.MessageStat.PublishDetail.Rate, nil
+
+	// Set message by type
+	switch s.MessageType {
+	case MessageTypeAll:
+		messages = info.Messages
+	case MessageTypeReady:
+		messages = info.MessageReady
+	case MessageTypeUnacknowledged:
+		messages = info.MessagesUnacknowledged
+	}
+
+	return messages, info.MessageStat.PublishDetail.Rate, nil
 }
 
 const (
