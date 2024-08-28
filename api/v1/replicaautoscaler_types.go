@@ -153,7 +153,7 @@ const (
 
 type ExhaustPending struct {
 	Threshold      intstr.IntOrString `json:"threshold" yaml:"threshold"`
-	TimeoutSeconds int32              `json:"timeout" yaml:"timeout"`
+	TimeoutSeconds int32              `json:"timeoutSeconds" yaml:"timeoutSeconds"`
 }
 
 // ReplicaAutoscalerStatus defines the observed state of ReplicaAutoscaler
