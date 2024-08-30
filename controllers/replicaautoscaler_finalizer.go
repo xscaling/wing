@@ -25,6 +25,6 @@ import (
 )
 
 // finalizer will do some recovery works
-func (r *ReplicaAutoscalerReconciler) finalizeAutoscaler(logger logr.Logger, autoscaler *wingv1.ReplicaAutoscaler) time.Duration {
+func (r *ReplicaAutoscalerReconciler) finalizeAutoscaler(_ logr.Logger, _ *wingv1.ReplicaAutoscaler) time.Duration {
 	return DefaultRequeueDelay
 }

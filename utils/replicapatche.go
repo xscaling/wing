@@ -1,14 +1,11 @@
 package utils
 
 import (
-	"context"
 	"encoding/json"
 	"time"
 
 	wingv1 "github.com/xscaling/wing/api/v1"
 	"github.com/xscaling/wing/utils/timerange"
-
-	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func GetReplicaPatches(replicaAutoscaler wingv1.ReplicaAutoscaler) (wingv1.ReplicaPatches, error) {
@@ -27,7 +24,7 @@ func GetReplicaPatches(replicaAutoscaler wingv1.ReplicaAutoscaler) (wingv1.Repli
 	return replicaPatches, nil
 }
 
-func PurgeUnusedReplicaPatches(client runtimeclient.Client, replicaAutoscaler *wingv1.ReplicaAutoscaler) error {
+func PurgeUnusedReplicaPatches(replicaAutoscaler *wingv1.ReplicaAutoscaler) error {
 	patches, err := GetReplicaPatches(*replicaAutoscaler)
 	if err != nil {
 		return err
@@ -57,7 +54,6 @@ func PurgeUnusedReplicaPatches(client runtimeclient.Client, replicaAutoscaler *w
 		// nothing to update
 		return nil
 	}
-	raw := replicaAutoscaler.DeepCopy()
 	if len(newPatches) == 0 {
 		delete(replicaAutoscaler.Annotations, wingv1.ReplicaPatchesAnnotation)
 	} else {
@@ -67,10 +63,5 @@ func PurgeUnusedReplicaPatches(client runtimeclient.Client, replicaAutoscaler *w
 		}
 		replicaAutoscaler.Annotations[wingv1.ReplicaPatchesAnnotation] = string(newPatchesString)
 	}
-	patch := runtimeclient.MergeFrom(raw.DeepCopy())
-	raw.Annotations = make(map[string]string)
-	for k, v := range replicaAutoscaler.Annotations {
-		raw.Annotations[k] = v
-	}
-	return client.Patch(context.TODO(), raw, patch)
+	return nil
 }

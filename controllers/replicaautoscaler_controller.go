@@ -18,9 +18,11 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	wingv1 "github.com/xscaling/wing/api/v1"
 	"github.com/xscaling/wing/core/engine"
+	"github.com/xscaling/wing/utils"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,14 +33,14 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // ReplicaAutoscalerReconciler reconciles a ReplicaAutoscaler object
 type ReplicaAutoscalerReconciler struct {
-	client.Client
+	runtimeclient.Client
 	cache.Cache
 
 	EventRecorder record.EventRecorder
@@ -74,7 +76,22 @@ func (r *ReplicaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		logger.Error(err, "Unable to get ReplicaAutoscaler")
 		return ctrl.Result{}, err
 	}
+	observedAutoscaler := replicaAutoscaler.DeepCopy()
+
+	if err := utils.PurgeUnusedReplicaPatches(replicaAutoscaler); err != nil {
+		logger.Error(err, "Failed to purge unused replica patches")
+	}
+
 	requeueDelay := r.reconcile(logger, replicaAutoscaler)
+
+	// Patch the autoscaler if needed
+	if updateRequeueDelay, err := r.updateAutoscalerIfNeeded(ctx, observedAutoscaler, replicaAutoscaler); err != nil {
+		logger.Error(err, "Failed to update autoscaler")
+		return ctrl.Result{
+			RequeueAfter: updateRequeueDelay,
+		}, err
+	}
+
 	// If we didn't requeue here then in this case one request would be dropped
 	// and RA would processed after 2 x resyncPeriod.
 	return ctrl.Result{
@@ -104,4 +121,44 @@ func (r *ReplicaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}).
 		For(&wingv1.ReplicaAutoscaler{}).
 		Complete(r)
+}
+
+func (r *ReplicaAutoscalerReconciler) updateAutoscalerIfNeeded(ctx context.Context,
+	observedAutoscaler, replicaAutoscaler *wingv1.ReplicaAutoscaler) (time.Duration, error) {
+	logger := log.FromContext(ctx)
+
+	// Check annotations is equal
+	annotationsEqual := utils.DeepEqual(replicaAutoscaler.Annotations, observedAutoscaler.Annotations)
+	statusEqual := utils.DeepEqual(replicaAutoscaler.Status, observedAutoscaler.Status)
+
+	if annotationsEqual && statusEqual {
+		logger.V(4).Info("Autoscaler annotations and status are equal, no update needed")
+		return 0, nil
+	}
+
+	patch := runtimeclient.MergeFrom(observedAutoscaler.DeepCopy())
+	observedAutoscaler.Annotations = make(map[string]string)
+	for k, v := range replicaAutoscaler.Annotations {
+		observedAutoscaler.Annotations[k] = v
+	}
+	observedAutoscaler.Status = replicaAutoscaler.Status
+
+	if annotationsEqual && !statusEqual {
+		// patch status only
+		logger.V(4).Info("Patching status only")
+		err := r.Client.Status().Patch(ctx, observedAutoscaler, patch)
+		if err != nil {
+			logger.Error(err, "Failed to update autoscaler status")
+			return RequeueDelayOnErrorState, err
+		}
+	} else {
+		// patch both annotations and status
+		logger.V(4).Info("Patching both annotations and status")
+		err := r.Client.Patch(ctx, observedAutoscaler, patch)
+		if err != nil {
+			logger.Error(err, "Failed to update autoscaler object")
+			return RequeueDelayOnErrorState, err
+		}
+	}
+	return 0, nil
 }

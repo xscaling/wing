@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -69,52 +68,11 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger,
 		return NotRequeue
 	}
 
-	isExhaust := false
-	exhaustedCondition := wingv1.Condition{
-		Type:               wingv1.ConditionExhausted,
-		Status:             metav1.ConditionFalse,
-		LastTransitionTime: metav1.Now(),
+	requeueDelay, err = r.updateExhaustedAutoscaler(logger, autoscaler, scale)
+	if err != nil {
+		logger.Error(err, "Failed to update exhausted autoscaler")
+		return RequeueDelayOnErrorState
 	}
-	if exhaust := autoscaler.Spec.Exhaust; exhaust != nil && exhaust.Type == wingv1.ExhaustOnPending {
-		scaledObjectSelector, err := labels.Parse(scale.Status.Selector)
-		if err != nil {
-			logger.Error(err, "couldn't convert selector into a corresponding target selector object")
-			return RequeueDelayOnErrorState
-		}
-		pods, err := r.Engine.InformerFactory.PodLister().Pods(autoscaler.Namespace).List(scaledObjectSelector)
-		if err != nil {
-			return RequeueDelayOnErrorState
-		}
-		pendingCount := 0
-		oldestPendingBornAt := time.Now()
-		for _, pod := range pods {
-			if pod.Status.Phase != corev1.PodPending {
-				continue
-			}
-			pendingCount++
-			if createdAt := pod.CreationTimestamp.Time; createdAt.Before(oldestPendingBornAt) {
-				oldestPendingBornAt = createdAt
-			}
-		}
-		numberThreshold, err := intstr.GetScaledValueFromIntOrPercent(
-			&exhaust.Pending.Threshold, int(autoscaler.Status.CurrentReplicas), true)
-		if err != nil {
-			return RequeueDelayOnErrorState
-		}
-		isExhaust = pendingCount > numberThreshold &&
-			time.Since(oldestPendingBornAt) > time.Duration(exhaust.Pending.TimeoutSeconds)*time.Second
-		if isExhaust {
-			exhaustedCondition.Status = metav1.ConditionTrue
-			exhaustedCondition.Reason = "ExhaustedOnPending"
-			exhaustedCondition.Message = fmt.Sprintf(
-				"Pending pods count is over threshold `%d` and oldest pending pod waiting over timeout `%d` second(s)",
-				numberThreshold, exhaust.Pending.TimeoutSeconds,
-			)
-		}
-	}
-	autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, exhaustedCondition)
-
-	observingAutoscaler := autoscaler.DeepCopy()
 
 	autoscaler.Status.ObservedGeneration = &autoscaler.Generation
 	autoscaler.Status.CurrentReplicas = scale.Status.Replicas
@@ -136,21 +94,6 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger,
 		Type:   wingv1.ConditionReady,
 		Status: metav1.ConditionTrue,
 	})
-
-	if err := utils.PurgeUnusedReplicaPatches(r.Client, autoscaler); err != nil {
-		logger.Error(err, "Failed to purge unused replica patches")
-	}
-
-	if !utils.DeepEqual(autoscaler.Status, observingAutoscaler.Status) {
-		logger.V(4).Info("Updating ReplicaAutoscaler status")
-		patch := runtimeclient.MergeFrom(observingAutoscaler.DeepCopy())
-		observingAutoscaler.Status = autoscaler.Status
-		err = r.Client.Status().Patch(context.TODO(), observingAutoscaler, patch)
-		if err != nil {
-			logger.Error(err, "Failed to update autoscaler status")
-			return RequeueDelayOnErrorState
-		}
-	}
 	return requeueDelay
 }
 
@@ -206,7 +149,7 @@ func (r *ReplicaAutoscalerReconciler) isTargetScalable(gvkr wingv1.GroupVersionK
 
 func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger,
 	autoscaler *wingv1.ReplicaAutoscaler,
-	gvkr wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale, desiredReplicas int32) error {
+	_ wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale, desiredReplicas int32) error {
 	autoscaler.Status.DesiredReplicas = desiredReplicas
 
 	if scale.Spec.Replicas == desiredReplicas {
@@ -446,4 +389,56 @@ func getWorkingReplicaPatch(autoscaler *wingv1.ReplicaAutoscaler) (*wingv1.Repli
 	}
 
 	return scheduling.GetReplicaPatch(time.Now(), replicaPatches)
+}
+
+func (r *ReplicaAutoscalerReconciler) updateExhaustedAutoscaler(
+	logger logr.Logger,
+	autoscaler *wingv1.ReplicaAutoscaler,
+	scale *autoscalingv1.Scale) (requeueDelay time.Duration, err error) {
+	isExhaust := false
+	exhaustedCondition := wingv1.Condition{
+		Type:               wingv1.ConditionExhausted,
+		Status:             metav1.ConditionFalse,
+		LastTransitionTime: metav1.Now(),
+	}
+	if exhaust := autoscaler.Spec.Exhaust; exhaust != nil && exhaust.Type == wingv1.ExhaustOnPending {
+		scaledObjectSelector, err := labels.Parse(scale.Status.Selector)
+		if err != nil {
+			logger.Error(err, "couldn't convert selector into a corresponding target selector object")
+			return RequeueDelayOnErrorState, err
+		}
+		pods, err := r.Engine.InformerFactory.PodLister().Pods(autoscaler.Namespace).List(scaledObjectSelector)
+		if err != nil {
+			return RequeueDelayOnErrorState, err
+		}
+		pendingCount := 0
+		oldestPendingBornAt := time.Now()
+		for _, pod := range pods {
+			if pod.Status.Phase != corev1.PodPending {
+				continue
+			}
+			pendingCount++
+			if createdAt := pod.CreationTimestamp.Time; createdAt.Before(oldestPendingBornAt) {
+				oldestPendingBornAt = createdAt
+			}
+		}
+		numberThreshold, err := intstr.GetScaledValueFromIntOrPercent(
+			&exhaust.Pending.Threshold, int(autoscaler.Status.CurrentReplicas), true)
+		if err != nil {
+			return RequeueDelayOnErrorState, err
+		}
+		isExhaust = pendingCount > numberThreshold &&
+			time.Since(oldestPendingBornAt) > time.Duration(exhaust.Pending.TimeoutSeconds)*time.Second
+		if isExhaust {
+			exhaustedCondition.Status = metav1.ConditionTrue
+			exhaustedCondition.Reason = "ExhaustedOnPending"
+			exhaustedCondition.Message = fmt.Sprintf(
+				"Pending pods count is over threshold `%d` and oldest pending pod waiting over timeout `%d` second(s)",
+				numberThreshold, exhaust.Pending.TimeoutSeconds,
+			)
+		}
+	}
+
+	autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, exhaustedCondition)
+	return NotRequeue, nil
 }
