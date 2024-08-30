@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -113,8 +112,6 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger,
 		}
 	}
 
-	observingAutoscaler := autoscaler.DeepCopy()
-
 	autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, exhaustedCondition)
 	autoscaler.Status.ObservedGeneration = &autoscaler.Generation
 	autoscaler.Status.CurrentReplicas = scale.Status.Replicas
@@ -136,21 +133,6 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger,
 		Type:   wingv1.ConditionReady,
 		Status: metav1.ConditionTrue,
 	})
-
-	if err := utils.PurgeUnusedReplicaPatches(r.Client, autoscaler); err != nil {
-		logger.Error(err, "Failed to purge unused replica patches")
-	}
-
-	if !utils.DeepEqual(autoscaler.Status, observingAutoscaler.Status) {
-		logger.V(4).Info("Updating ReplicaAutoscaler status")
-		patch := runtimeclient.MergeFrom(observingAutoscaler.DeepCopy())
-		observingAutoscaler.Status = autoscaler.Status
-		err = r.Client.Status().Patch(context.TODO(), observingAutoscaler, patch)
-		if err != nil {
-			logger.Error(err, "Failed to update autoscaler status")
-			return RequeueDelayOnErrorState
-		}
-	}
 	return requeueDelay
 }
 
