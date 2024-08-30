@@ -149,7 +149,7 @@ func (r *ReplicaAutoscalerReconciler) isTargetScalable(gvkr wingv1.GroupVersionK
 
 func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger,
 	autoscaler *wingv1.ReplicaAutoscaler,
-	_ wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale, desiredReplicas int32) error {
+	gvkr wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale, desiredReplicas int32) error {
 	autoscaler.Status.DesiredReplicas = desiredReplicas
 
 	if scale.Spec.Replicas == desiredReplicas {
@@ -158,23 +158,32 @@ func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger,
 	}
 	logger.V(2).Info("Scaling replicas",
 		"currentReplicas", scale.Spec.Replicas, "desireReplicas", desiredReplicas)
-	// FIXME: Dry run for release environment
-	// scale.Spec.Replicas = desiredReplicas
-	// _, err := r.scaleClient.Scales(scale.Namespace).Update(
-	// 	context.TODO(), gvkr.GroupResource(), scale.DeepCopy(), metav1.UpdateOptions{})
-	// if err != nil {
-	// 	logger.Error(err, "Failed to scale replicas")
-	// 	return err
-	// }
-	// if err != nil {
-	// 	autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
-	// 		Type:    wingv1.ConditionReady,
-	// 		Status:  metav1.ConditionFalse,
-	// 		Reason:  "FailedToScale",
-	// 		Message: fmt.Sprintf("Failed to scale target: %s", err),
-	// 	})
-	// 	logger.Error(err, "Failed to scale target")
-	// }
+	dryRunFlag := autoscaler.Annotations[wingv1.DryRunAnnotation]
+	// WARNING(@oif): During wing alpha version, scaling action won't be performed by default.
+	// This is to prevent any potential issues during alpha testing period.
+	// This will be performed by default in next release.
+	if dryRunFlag == "false" {
+		logger.V(4).Info("Performing scaling action")
+		scale.Spec.Replicas = desiredReplicas
+		_, err := r.scaleClient.Scales(scale.Namespace).Update(
+			context.TODO(), gvkr.GroupResource(), scale.DeepCopy(), metav1.UpdateOptions{})
+		if err != nil {
+			logger.Error(err, "Failed to scale replicas")
+			return err
+		}
+		if err != nil {
+			autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
+				Type:    wingv1.ConditionReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  "FailedToScale",
+				Message: fmt.Sprintf("Failed to scale target: %s", err),
+			})
+			logger.Error(err, "Failed to scale target")
+		}
+	} else {
+		logger.V(4).Info("Dry run scaling replicas",
+			"currentReplicas", scale.Spec.Replicas, "desireReplicas", desiredReplicas)
+	}
 
 	now := metav1.NewTime(time.Now())
 	autoscaler.Status.LastScaleTime = &now
