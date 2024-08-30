@@ -112,10 +112,10 @@ func (r *ReplicaAutoscalerReconciler) reconcile(logger logr.Logger,
 			)
 		}
 	}
-	autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, exhaustedCondition)
 
 	observingAutoscaler := autoscaler.DeepCopy()
 
+	autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, exhaustedCondition)
 	autoscaler.Status.ObservedGeneration = &autoscaler.Generation
 	autoscaler.Status.CurrentReplicas = scale.Status.Replicas
 	// TODO(@oif): Init various
