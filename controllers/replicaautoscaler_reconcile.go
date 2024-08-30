@@ -188,7 +188,7 @@ func (r *ReplicaAutoscalerReconciler) isTargetScalable(gvkr wingv1.GroupVersionK
 
 func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger,
 	autoscaler *wingv1.ReplicaAutoscaler,
-	gvkr wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale, desiredReplicas int32) error {
+	_ wingv1.GroupVersionKindResource, scale *autoscalingv1.Scale, desiredReplicas int32) error {
 	autoscaler.Status.DesiredReplicas = desiredReplicas
 
 	if scale.Spec.Replicas == desiredReplicas {
