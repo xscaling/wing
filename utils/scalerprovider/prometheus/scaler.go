@@ -25,9 +25,9 @@ var (
 )
 
 type ScalerConfig struct {
-	Toleration    float64       `yaml:"toleration"`
-	Timeout       time.Duration `yaml:"timeout"`
-	DefaultServer Server        `yaml:"defaultServer"`
+	Toleration     float64       `yaml:"toleration"`
+	DefaultTimeout time.Duration `yaml:"defaultTimeout"`
+	DefaultServer  Server        `yaml:"defaultServer"`
 }
 
 func (c ScalerConfig) Validate() error {
@@ -46,8 +46,8 @@ const (
 
 func NewDefaultConfig() *ScalerConfig {
 	return &ScalerConfig{
-		Toleration: DefaultToleration,
-		Timeout:    30 * time.Second,
+		Toleration:     DefaultToleration,
+		DefaultTimeout: 30 * time.Second,
 	}
 }
 
@@ -114,7 +114,7 @@ func New(pluginName string, config ScalerConfig) (*scaler, error) {
 	return &scaler{
 		pluginName:  pluginName,
 		config:      config,
-		queryClient: NewQueryClient(config.Timeout),
+		queryClient: NewQueryClient(config.DefaultTimeout),
 	}, nil
 }
 
