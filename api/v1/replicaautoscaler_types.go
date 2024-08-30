@@ -23,6 +23,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+func init() {
+	SchemeBuilder.Register(&ReplicaAutoscaler{}, &ReplicaAutoscalerList{})
+}
+
 // MetricTargetType specifies the type of metric being targeted, and should be either
 // "Value", "AverageValue", or "Utilization"
 type MetricTargetType string
@@ -261,6 +265,10 @@ type ReplicaPatch struct {
 
 type ReplicaPatches []ReplicaPatch
 
-func init() {
-	SchemeBuilder.Register(&ReplicaAutoscaler{}, &ReplicaAutoscalerList{})
-}
+const (
+	// DryRunAnnotation is used to indicate whether the scaling action should be performed.
+	// If it's set to true, the scaling action will be performed.
+	// If it's set to false or not set, the scaling action will be skipped.
+	// Will be performed by default in next release.
+	DryRunAnnotation = "wing.xscaling.dev/dry-run"
+)
