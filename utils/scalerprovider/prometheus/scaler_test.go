@@ -28,13 +28,13 @@ func (f *fakeQueryClient) Query(server Server, query string, when time.Time) (fl
 func TestScaler(t *testing.T) {
 	// without default server
 	_, err := New("test", ScalerConfig{
-		Timeout: 10 & time.Second,
+		DefaultTimeout: 10 & time.Second,
 	})
 	require.Error(t, err)
 	// invalid toleration
 	_, err = New("test", ScalerConfig{
-		Toleration: -0.1,
-		Timeout:    10 & time.Second,
+		Toleration:     -0.1,
+		DefaultTimeout: 10 & time.Second,
 		DefaultServer: Server{
 			ServerAddress: pointer.String("https://prometheus.example.com"),
 		},
@@ -42,8 +42,8 @@ func TestScaler(t *testing.T) {
 	require.Error(t, err)
 
 	testScaler, err := New("test", ScalerConfig{
-		Toleration: 0.1,
-		Timeout:    10 & time.Second,
+		Toleration:     0.1,
+		DefaultTimeout: 10 & time.Second,
 		DefaultServer: Server{
 			ServerAddress: pointer.String("https://prometheus.example.com"),
 		},
@@ -167,8 +167,8 @@ func TestScaler(t *testing.T) {
 
 func TestScalerFailAsLastValue(t *testing.T) {
 	testScaler, err := New("test", ScalerConfig{
-		Toleration: 0.1,
-		Timeout:    10 & time.Second,
+		Toleration:     0.1,
+		DefaultTimeout: 10 & time.Second,
 		DefaultServer: Server{
 			ServerAddress: pointer.String("https://prometheus.example.com"),
 		},
@@ -241,8 +241,8 @@ func TestScalerFailAsLastValue(t *testing.T) {
 
 func TestScalerFailAsZero(t *testing.T) {
 	testScaler, err := New("test", ScalerConfig{
-		Toleration: 0.1,
-		Timeout:    10 & time.Second,
+		Toleration:     0.1,
+		DefaultTimeout: 10 & time.Second,
 		DefaultServer: Server{
 			ServerAddress: pointer.String("https://prometheus.example.com"),
 		},

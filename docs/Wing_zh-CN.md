@@ -109,7 +109,7 @@ plugins:
     utilizationToleration: 0.05
   prometheus:
     toleration: 0.05
-    timeout: 5s
+    defaultTimeout: 5s
     defaultServer:
       serverAddress: http://prometheus
   # using default config

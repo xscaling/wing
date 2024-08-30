@@ -24,8 +24,8 @@ func init() {
 }
 
 type ScalerConfig struct {
-	Toleration float64       `yaml:"toleration"`
-	Timeout    time.Duration `yaml:"timeout"`
+	Toleration     float64       `yaml:"toleration"`
+	DefaultTimeout time.Duration `yaml:"defaultTimeout"`
 }
 
 func (c ScalerConfig) Validate() error {
@@ -62,7 +62,7 @@ func (s *scaler) Get(ctx engine.ScalerContext) (so *engine.ScalerOutput, err err
 		return
 	}
 
-	timeout := s.Timeout
+	timeout := s.DefaultTimeout
 	if t := settings.Timeout; t != nil {
 		timeout = *t
 	}
