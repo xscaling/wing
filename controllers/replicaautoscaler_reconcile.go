@@ -168,10 +168,6 @@ func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger,
 		_, err := r.scaleClient.Scales(scale.Namespace).Update(
 			context.TODO(), gvkr.GroupResource(), scale.DeepCopy(), metav1.UpdateOptions{})
 		if err != nil {
-			logger.Error(err, "Failed to scale replicas")
-			return err
-		}
-		if err != nil {
 			autoscaler.Status.Conditions = wingv1.SetCondition(autoscaler.Status.Conditions, wingv1.Condition{
 				Type:    wingv1.ConditionReady,
 				Status:  metav1.ConditionFalse,
@@ -179,6 +175,7 @@ func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger,
 				Message: fmt.Sprintf("Failed to scale target: %s", err),
 			})
 			logger.Error(err, "Failed to scale target")
+			return err
 		}
 	} else {
 		logger.V(4).Info("Dry run scaling replicas",
