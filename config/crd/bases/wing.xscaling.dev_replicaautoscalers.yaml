@@ -66,6 +66,32 @@ spec:
           spec:
             description: ReplicaAutoscalerSpec defines the desired state of ReplicaAutoscaler
             properties:
+              exhaust:
+                description: Exhaust is the settings for exhaust checking
+                properties:
+                  pending:
+                    description: Pending is the details for exhaust check config.
+                      If oldest pending pod life is not shorter than timeout, and
+                      percentage or number of pending pod(s) is not smaller than threshold,
+                      then the exhaust mode will be triggered.
+                    properties:
+                      threshold:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                      timeoutSeconds:
+                        format: int32
+                        type: integer
+                    required:
+                    - threshold
+                    - timeoutSeconds
+                    type: object
+                  type:
+                    description: Type of exhaust mode, only `Pending` is currently
+                      supported.
+                    type: string
+                type: object
               maxReplicas:
                 description: maxReplicas is the upper limit for the number of replicas
                   to which the autoscaler can scale up. It cannot be less that minReplicas(if
@@ -83,6 +109,7 @@ spec:
                   scalers output and make final scaling decision
                 type: string
               replicatorSettings:
+                description: ReplicatorSettings is the configuration of replicator
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               scaleTargetRef:
@@ -168,30 +195,6 @@ spec:
                   - settings
                   type: object
                 type: array
-              exhaust:
-                description: Exhaust is the settings for exhaust checking.
-                properties:
-                  type:
-                    type: string
-                    description: Type of exhaust mode, only `Pending` is currently supported.
-                  pending:
-                    description: Pending is the details for exhaust check config.
-                      If oldest pending pod life is not shorter than timeout,
-                      and percentage or number of pending pod(s) is not smaller than threshold,
-                      then the exhaust mode will be triggered.
-                    type: object
-                    properties:
-                      threshold:
-                        description: Threshold allowed pending for exhaust mode.
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        x-kubernetes-int-or-string: true
-                      timeoutSeconds:
-                        type: integer
-                type: object
-                required:
-                - type
             required:
             - maxReplicas
             - scaleTargetRef
@@ -235,6 +238,7 @@ spec:
                 format: int32
                 type: integer
               desiredReplicas:
+                default: 0
                 description: desiredReplicas is the desired replicas of object managed
                   by this autoscaler, as last calculated by the autoscaler.
                 format: int32
