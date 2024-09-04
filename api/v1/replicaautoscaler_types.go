@@ -178,6 +178,7 @@ type ReplicaAutoscalerStatus struct {
 
 	// desiredReplicas is the desired replicas of object managed by this autoscaler,
 	// as last calculated by the autoscaler.
+	// +kubebuilder:default=0
 	DesiredReplicas int32 `json:"desiredReplicas"`
 
 	// targets indicates state of targets used by this autoscaler
