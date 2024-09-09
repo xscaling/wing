@@ -70,11 +70,24 @@ func (s *scaler) Get(ctx engine.ScalerContext) (so *engine.ScalerOutput, err err
 	if err != nil {
 		return
 	}
-	desiredReplicas := int32(0)
-	averageValue := metricValue / float64(ctx.CurrentReplicas)
-	scaleRatio := averageValue / settings.Value
-	if math.Abs(100.0-scaleRatio*100) >= s.Toleration*100 {
-		desiredReplicas = int32(math.Ceil(scaleRatio * float64(ctx.CurrentReplicas)))
+	var (
+		desiredReplicas int32
+		averageValue    float64
+	)
+	if metricValue == 0 {
+		// Ability to scale to zero
+		desiredReplicas = 0
+		averageValue = 0
+	} else if ctx.CurrentReplicas == 0 {
+		// Scale from zero
+		desiredReplicas = int32(math.Ceil(metricValue / settings.Value))
+		averageValue = metricValue / float64(desiredReplicas)
+	} else {
+		averageValue = metricValue / float64(ctx.CurrentReplicas)
+		scaleRatio := averageValue / settings.Value
+		if math.Abs(100.0-scaleRatio*100) >= s.Toleration*100 {
+			desiredReplicas = int32(math.Ceil(scaleRatio * float64(ctx.CurrentReplicas)))
+		}
 	}
 	utils.SetTargetStatus(ctx.AutoscalerStatus, wingv1.TargetStatus{
 		Target:          settings.GetStatusMetricName(),
