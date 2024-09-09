@@ -174,6 +174,7 @@ func (s *scaler) CalculateDesiredReplicas(ctx engine.ScalerContext, settings *Se
 	// Empty result or return zero indeed
 	if value == 0 {
 		desiredReplicas = 0
+		averageValue = 0
 	} else {
 		// If averageValue is not set then calculate it, otherwise use previous set value
 		if averageValue == math.MaxFloat64 {
