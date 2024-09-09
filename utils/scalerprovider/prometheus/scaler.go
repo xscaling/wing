@@ -175,6 +175,10 @@ func (s *scaler) CalculateDesiredReplicas(ctx engine.ScalerContext, settings *Se
 	if value == 0 {
 		desiredReplicas = 0
 		averageValue = 0
+	} else if ctx.CurrentReplicas == 0 {
+		// Scale from zero
+		desiredReplicas = int32(math.Ceil(value / settings.Threshold))
+		averageValue = value / float64(desiredReplicas)
 	} else {
 		// If averageValue is not set then calculate it, otherwise use previous set value
 		if averageValue == math.MaxFloat64 {
