@@ -171,23 +171,20 @@ func (s *scaler) CalculateDesiredReplicas(ctx engine.ScalerContext, settings *Se
 			return nil, fmt.Errorf("unknown failure mode: `%s`", settings.FailureMode)
 		}
 	}
-	// Empty result or return zero indeed
-	if value == 0 {
-		desiredReplicas = 0
-	} else {
-		// If averageValue is not set then calculate it, otherwise use previous set value
-		if averageValue == math.MaxFloat64 {
-			averageValue = value / float64(ctx.CurrentReplicas)
-		}
 
-		scaleRatio := averageValue / settings.Threshold
-		// due to accuracy issue
-		if math.Abs(100.0-scaleRatio*100) >= s.config.Toleration*100 {
-			// desiredReplicas = ceil(averageValue / threshold) * currentReplicas
-			// If current replicas is zero, then won't trigger scaling whatever the value is.
-			desiredReplicas = int32(math.Ceil(scaleRatio * float64(ctx.CurrentReplicas)))
-		}
+	// If averageValue is not set then calculate it, otherwise use previous set value
+	if averageValue == math.MaxFloat64 {
+		averageValue = value / float64(ctx.CurrentReplicas)
 	}
+
+	scaleRatio := averageValue / settings.Threshold
+	// due to accuracy issue
+	if math.Abs(100.0-scaleRatio*100) >= s.config.Toleration*100 {
+		// desiredReplicas = ceil(averageValue / threshold) * currentReplicas
+		// If current replicas is zero, then won't trigger scaling whatever the value is.
+		desiredReplicas = int32(math.Ceil(scaleRatio * float64(ctx.CurrentReplicas)))
+	}
+
 	if shouldUpdateAverageValue {
 		utils.SetTargetStatus(ctx.AutoscalerStatus, wingv1.TargetStatus{
 			Target:          targetStatusName,
