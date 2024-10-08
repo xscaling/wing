@@ -81,7 +81,10 @@ func (s *scaler) Get(ctx engine.ScalerContext) (so *engine.ScalerOutput, err err
 	} else if ctx.CurrentReplicas == 0 {
 		// Scale from zero
 		desiredReplicas = int32(math.Ceil(metricValue / settings.Value))
-		averageValue = metricValue / float64(desiredReplicas)
+		// To avoid division by zero
+		if desiredReplicas != 0 {
+			averageValue = metricValue / float64(desiredReplicas)
+		}
 	} else {
 		averageValue = metricValue / float64(ctx.CurrentReplicas)
 		scaleRatio := averageValue / settings.Value
