@@ -158,11 +158,11 @@ func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger,
 	}
 	logger.V(2).Info("Scaling replicas",
 		"currentReplicas", scale.Spec.Replicas, "desireReplicas", desiredReplicas)
-	raDryRun := autoscaler.Annotations[wingv1.DryRunAnnotation] == "true"
-	// WARNING(@oif): During wing alpha version, scaling action won't be performed by default.
-	// This is to prevent any potential issues during alpha testing period.
-	// This will be performed by default in next release.
-	if !raDryRun && !r.DryRun {
+	// Allowing setting dry-run by ReplicaAutoscaler or global dry-run by controller
+	if autoscaler.Annotations[wingv1.DryRunAnnotation] == "true" || r.DryRun {
+		logger.V(4).Info("Dry run scaling replicas",
+			"currentReplicas", scale.Spec.Replicas, "desireReplicas", desiredReplicas)
+	} else {
 		logger.V(4).Info("Performing scaling action")
 		scale.Spec.Replicas = desiredReplicas
 		_, err := r.scaleClient.Scales(scale.Namespace).Update(
@@ -177,9 +177,6 @@ func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger,
 			logger.Error(err, "Failed to scale target")
 			return err
 		}
-	} else {
-		logger.V(4).Info("Dry run scaling replicas",
-			"currentReplicas", scale.Spec.Replicas, "desireReplicas", desiredReplicas)
 	}
 
 	now := metav1.NewTime(time.Now())
