@@ -162,7 +162,7 @@ func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger,
 	// WARNING(@oif): During wing alpha version, scaling action won't be performed by default.
 	// This is to prevent any potential issues during alpha testing period.
 	// This will be performed by default in next release.
-	if dryRunFlag == "false" {
+	if dryRunFlag != "true" {
 		logger.V(4).Info("Performing scaling action")
 		scale.Spec.Replicas = desiredReplicas
 		_, err := r.scaleClient.Scales(scale.Namespace).Update(
