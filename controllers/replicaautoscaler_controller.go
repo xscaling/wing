@@ -49,6 +49,7 @@ type ReplicaAutoscalerReconciler struct {
 	KubernetesConfig *rest.Config
 	Scheme           *runtime.Scheme
 	Engine           *engine.Engine
+	DryRun           bool
 
 	restMapper  meta.RESTMapper
 	scaleClient scale.ScalesGetter

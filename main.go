@@ -61,6 +61,7 @@ func main() {
 		enableLeaderElection bool
 		probeAddr            string
 		leaderElectionID     string
+		dryRun               bool
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -69,6 +70,7 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&leaderElectionID, "leader-election-id", "wing.xscaling.dev",
 		"The ID of the leader election, for more than one controller manager")
+	flag.BoolVar(&dryRun, "dry-run", false, "If true, only print the object that would be sent, without sending it.")
 	zapOptions := zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
@@ -126,6 +128,7 @@ func main() {
 		Scheme:           mgr.GetScheme(),
 		EventRecorder:    eventRecorder,
 		Engine:           coreEngine,
+		DryRun:           dryRun,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ReplicaAutoscaler")
 		os.Exit(1)

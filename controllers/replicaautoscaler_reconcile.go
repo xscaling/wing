@@ -158,11 +158,11 @@ func (r *ReplicaAutoscalerReconciler) scaleReplicas(logger logr.Logger,
 	}
 	logger.V(2).Info("Scaling replicas",
 		"currentReplicas", scale.Spec.Replicas, "desireReplicas", desiredReplicas)
-	dryRunFlag := autoscaler.Annotations[wingv1.DryRunAnnotation]
+	raDryRun := autoscaler.Annotations[wingv1.DryRunAnnotation] != "true"
 	// WARNING(@oif): During wing alpha version, scaling action won't be performed by default.
 	// This is to prevent any potential issues during alpha testing period.
 	// This will be performed by default in next release.
-	if dryRunFlag != "true" {
+	if !raDryRun && !r.DryRun {
 		logger.V(4).Info("Performing scaling action")
 		scale.Spec.Replicas = desiredReplicas
 		_, err := r.scaleClient.Scales(scale.Namespace).Update(
