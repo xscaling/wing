@@ -1,6 +1,8 @@
 package simple
 
 import (
+	"encoding/json"
+
 	wingv1 "github.com/xscaling/wing/api/v1"
 	"github.com/xscaling/wing/core/engine"
 	"github.com/xscaling/wing/utils/tuner"
@@ -18,6 +20,11 @@ func NewDefaultConfig() *Config {
 
 func (c Config) Validate() error {
 	return nil
+}
+
+type Settings struct {
+	StabilizerPreference *tuner.StabilizerPreference
+	FluxPreference       *tuner.FluxPreference
 }
 
 type replicator struct {
@@ -41,6 +48,12 @@ func (r *replicator) GetDesiredReplicas(ctx engine.ReplicatorContext) (int32, er
 	logger := r.logger.WithValues("namespace", ctx.Autoscaler.Namespace, "replicaAutoscaler", ctx.Autoscaler.Name)
 
 	keyForAutoscaler := getUniqueKeyForAutoscaler(ctx.Autoscaler)
+	var settings Settings
+	err := json.Unmarshal(ctx.Autoscaler.Spec.ReplicatorSettings.Raw, &settings)
+	if err != nil {
+		logger.Error(err, "failed to unmarshal JSON into replicator setting")
+		return ctx.Autoscaler.Status.CurrentReplicas, err
+	}
 
 	var (
 		desiredReplicas int32
@@ -55,11 +68,21 @@ func (r *replicator) GetDesiredReplicas(ctx engine.ReplicatorContext) (int32, er
 	}
 
 	stabilizedReplicas := r.stabilizer.GetRecommendation(keyForAutoscaler,
-		ctx.Autoscaler.Status.CurrentReplicas, desiredReplicas, tuner.StabilizerPreference{})
+		ctx.Autoscaler.Status.CurrentReplicas, desiredReplicas, settings.StabilizerPreference)
 	if stabilizedReplicas != desiredReplicas {
 		logger.V(2).Info("Stabilized desire replicas",
 			"normalizedDesiredReplicas", desiredReplicas, "stabilizedReplicas", stabilizedReplicas)
 		desiredReplicas = stabilizedReplicas
 	}
+
+	fluxReplicas := r.flux.GetRecommendation(keyForAutoscaler,
+		ctx.Autoscaler.Status.CurrentReplicas, desiredReplicas, settings.FluxPreference)
+	if fluxReplicas != desiredReplicas {
+		logger.V(2).Info("Fluxed desire replicas",
+			"normalizedDesiredReplicas", desiredReplicas, "fluxReplicas", fluxReplicas)
+		desiredReplicas = fluxReplicas
+	}
+	r.flux.AcceptRecommendation(keyForAutoscaler, ctx.Autoscaler.Status.CurrentReplicas, desiredReplicas)
+
 	return desiredReplicas, nil
 }
