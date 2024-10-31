@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/xscaling/wing/core/engine"
+	"github.com/xscaling/wing/utils/tuner"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -27,10 +28,11 @@ func setup(c engine.Controller) error {
 	}
 
 	r := &replicator{
-		config:                   *config,
-		logger:                   log.Log.WithName(PluginName),
-		eventRecorder:            c.GetEventRecorder(),
-		historicalRecommendation: make(map[string][]timestampedRecommendation),
+		config:        *config,
+		logger:        log.Log.WithName(PluginName),
+		eventRecorder: c.GetEventRecorder(),
+		stabilizer:    tuner.NewStabilizer(),
+		flux:          tuner.NewFluxTuner(),
 	}
 
 	c.AddReplicator("simple", r)
