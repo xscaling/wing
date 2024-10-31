@@ -12,10 +12,13 @@ import (
 )
 
 type Config struct {
+	DisableTuner bool
 }
 
 func NewDefaultConfig() *Config {
-	return &Config{}
+	return &Config{
+		DisableTuner: false,
+	}
 }
 
 func (c Config) Validate() error {
@@ -67,22 +70,24 @@ func (r *replicator) GetDesiredReplicas(ctx engine.ReplicatorContext) (int32, er
 		}
 	}
 
-	stabilizedReplicas := r.stabilizer.GetRecommendation(keyForAutoscaler,
-		ctx.Autoscaler.Status.CurrentReplicas, desiredReplicas, settings.StabilizerPreference)
-	if stabilizedReplicas != desiredReplicas {
-		logger.V(2).Info("Stabilized desire replicas",
-			"normalizedDesiredReplicas", desiredReplicas, "stabilizedReplicas", stabilizedReplicas)
-		desiredReplicas = stabilizedReplicas
-	}
+	if !r.config.DisableTuner {
+		stabilizedReplicas := r.stabilizer.GetRecommendation(keyForAutoscaler,
+			ctx.Autoscaler.Status.CurrentReplicas, desiredReplicas, settings.StabilizerPreference)
+		if stabilizedReplicas != desiredReplicas {
+			logger.V(2).Info("Stabilized desire replicas",
+				"normalizedDesiredReplicas", desiredReplicas, "stabilizedReplicas", stabilizedReplicas)
+			desiredReplicas = stabilizedReplicas
+		}
 
-	fluxReplicas := r.flux.GetRecommendation(keyForAutoscaler,
-		ctx.Autoscaler.Status.CurrentReplicas, desiredReplicas, settings.FluxPreference)
-	if fluxReplicas != desiredReplicas {
-		logger.V(2).Info("Fluxed desire replicas",
-			"normalizedDesiredReplicas", desiredReplicas, "fluxReplicas", fluxReplicas)
-		desiredReplicas = fluxReplicas
+		fluxReplicas := r.flux.GetRecommendation(keyForAutoscaler,
+			ctx.Autoscaler.Status.CurrentReplicas, desiredReplicas, settings.FluxPreference)
+		if fluxReplicas != desiredReplicas {
+			logger.V(2).Info("Fluxed desire replicas",
+				"normalizedDesiredReplicas", desiredReplicas, "fluxReplicas", fluxReplicas)
+			desiredReplicas = fluxReplicas
+		}
+		r.flux.AcceptRecommendation(keyForAutoscaler, ctx.Autoscaler.Status.CurrentReplicas, desiredReplicas)
 	}
-	r.flux.AcceptRecommendation(keyForAutoscaler, ctx.Autoscaler.Status.CurrentReplicas, desiredReplicas)
 
 	return desiredReplicas, nil
 }
