@@ -1,6 +1,7 @@
 package tuner
 
 type Tuner interface {
+	GetName() string
 	// GetRecommendation returns a recommended replica count based on the current state and preferences.
 	// Some tuners may not distinguish between scale up/down preferences, so the preference structure
 	// is left to each tuner's implementation to interpret appropriately.

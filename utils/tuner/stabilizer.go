@@ -29,6 +29,10 @@ type StabilizerPreference struct {
 	ScaleDownStabilizationSeconds int `json:"scaleDownStabilizationSeconds" yaml:"scaleDownStabilizationSeconds"`
 }
 
+func (s *Stabilizer) GetName() string {
+	return "stabilizer"
+}
+
 func (s *Stabilizer) GetRecommendation(keyForAutoscaler string,
 	currentReplicas int32, desiredReplicas int32, preference interface{}) int32 {
 	maxRecommendation := desiredReplicas

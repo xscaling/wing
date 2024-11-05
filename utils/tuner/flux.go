@@ -134,7 +134,11 @@ func NewFluxTuner() *FluxTuner {
 	}
 }
 
-func (fc *FluxTuner) GetRecommendation(keyForAutoscaler string,
+func (f *FluxTuner) GetName() string {
+	return "flux"
+}
+
+func (f *FluxTuner) GetRecommendation(keyForAutoscaler string,
 	currentReplicas int32, desiredReplicas int32, preference interface{}) int32 {
 	fluxPreference, ok := preference.(FluxPreference)
 	if !ok {
@@ -161,22 +165,22 @@ func (fc *FluxTuner) GetRecommendation(keyForAutoscaler string,
 
 	// apply rules
 	if isScaleUp {
-		rm, ok := fc.historicalScaleUpReplicaMemory.Load(keyForAutoscaler)
+		rm, ok := f.historicalScaleUpReplicaMemory.Load(keyForAutoscaler)
 		if !ok {
 			rm = NewSimpleReplicaMemory(DefaultReplicaMemoryMaxSize, DefaultReplicaMemoryRetention)
-			fc.historicalScaleUpReplicaMemory.Store(keyForAutoscaler, rm)
+			f.historicalScaleUpReplicaMemory.Store(keyForAutoscaler, rm)
 		}
-		limit := fc.getScaleUpLimit(rm.(ReplicaMemory), currentReplicas, ruleSet)
+		limit := f.getScaleUpLimit(rm.(ReplicaMemory), currentReplicas, ruleSet)
 		if desiredReplicas > limit {
 			desiredReplicas = limit
 		}
 	} else {
-		rm, ok := fc.historicalScaleDownReplicaMemory.Load(keyForAutoscaler)
+		rm, ok := f.historicalScaleDownReplicaMemory.Load(keyForAutoscaler)
 		if !ok {
 			rm = NewSimpleReplicaMemory(DefaultReplicaMemoryMaxSize, DefaultReplicaMemoryRetention)
-			fc.historicalScaleDownReplicaMemory.Store(keyForAutoscaler, rm)
+			f.historicalScaleDownReplicaMemory.Store(keyForAutoscaler, rm)
 		}
-		limit := fc.getScaleDownLimit(rm.(ReplicaMemory), currentReplicas, ruleSet)
+		limit := f.getScaleDownLimit(rm.(ReplicaMemory), currentReplicas, ruleSet)
 		if desiredReplicas < limit {
 			desiredReplicas = limit
 		}
@@ -185,20 +189,20 @@ func (fc *FluxTuner) GetRecommendation(keyForAutoscaler string,
 	return desiredReplicas
 }
 
-func (fc *FluxTuner) AcceptRecommendation(keyForAutoscaler string, currentReplicas int32, desiredReplicas int32) {
+func (f *FluxTuner) AcceptRecommendation(keyForAutoscaler string, currentReplicas int32, desiredReplicas int32) {
 	var rm ReplicaMemory
 	if currentReplicas < desiredReplicas {
-		recordedReplicaMemory, ok := fc.historicalScaleUpReplicaMemory.Load(keyForAutoscaler)
+		recordedReplicaMemory, ok := f.historicalScaleUpReplicaMemory.Load(keyForAutoscaler)
 		if !ok {
 			recordedReplicaMemory = NewSimpleReplicaMemory(DefaultReplicaMemoryMaxSize, DefaultReplicaMemoryRetention)
-			fc.historicalScaleUpReplicaMemory.Store(keyForAutoscaler, recordedReplicaMemory)
+			f.historicalScaleUpReplicaMemory.Store(keyForAutoscaler, recordedReplicaMemory)
 		}
 		rm = recordedReplicaMemory.(ReplicaMemory)
 	} else {
-		recordedReplicaMemory, ok := fc.historicalScaleDownReplicaMemory.Load(keyForAutoscaler)
+		recordedReplicaMemory, ok := f.historicalScaleDownReplicaMemory.Load(keyForAutoscaler)
 		if !ok {
 			recordedReplicaMemory = NewSimpleReplicaMemory(DefaultReplicaMemoryMaxSize, DefaultReplicaMemoryRetention)
-			fc.historicalScaleDownReplicaMemory.Store(keyForAutoscaler, recordedReplicaMemory)
+			f.historicalScaleDownReplicaMemory.Store(keyForAutoscaler, recordedReplicaMemory)
 		}
 		rm = recordedReplicaMemory.(ReplicaMemory)
 	}
@@ -208,7 +212,7 @@ func (fc *FluxTuner) AcceptRecommendation(keyForAutoscaler string, currentReplic
 	})
 }
 
-func (fc *FluxTuner) getScaleUpLimit(replicaMemory ReplicaMemory, currentReplicas int32, ruleSet *FluxRuleSet) int32 {
+func (f *FluxTuner) getScaleUpLimit(replicaMemory ReplicaMemory, currentReplicas int32, ruleSet *FluxRuleSet) int32 {
 	limit := int32(math.MaxInt32)
 	choosePolicy := min
 	if ruleSet.Strategy == RuleStrategyMax {
@@ -235,7 +239,7 @@ func (fc *FluxTuner) getScaleUpLimit(replicaMemory ReplicaMemory, currentReplica
 	return limit
 }
 
-func (fc *FluxTuner) getScaleDownLimit(replicaMemory ReplicaMemory, currentReplicas int32, ruleSet *FluxRuleSet) int32 {
+func (f *FluxTuner) getScaleDownLimit(replicaMemory ReplicaMemory, currentReplicas int32, ruleSet *FluxRuleSet) int32 {
 	limit := int32(math.MinInt32)
 	choosePolicy := max
 	if ruleSet.Strategy == RuleStrategyMin {
