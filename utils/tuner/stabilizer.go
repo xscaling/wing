@@ -1,8 +1,11 @@
 package tuner
 
 import (
+	"context"
 	"sync"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -35,6 +38,12 @@ func (s *Stabilizer) GetName() string {
 
 func (s *Stabilizer) GetRecommendation(keyForAutoscaler string,
 	currentReplicas int32, desiredReplicas int32, preference interface{}) int32 {
+	logger := log.FromContext(context.TODO()).WithValues(
+		"tuner", s.GetName(),
+		"keyForAutoscaler", keyForAutoscaler,
+		"currentReplicas", currentReplicas,
+		"desiredReplicas", desiredReplicas,
+	)
 	maxRecommendation := desiredReplicas
 	stabilizationWindow := DefaultStabilizationWindow
 	stabilizerPreference, ok := preference.(StabilizerPreference)
@@ -64,6 +73,9 @@ func (s *Stabilizer) GetRecommendation(keyForAutoscaler string,
 		if rec.Replicas > maxRecommendation {
 			maxRecommendation = rec.Replicas
 		}
+	}
+	if maxRecommendation != desiredReplicas {
+		logger.V(2).Info("Stabilized recommendation", "maxRecommendation", maxRecommendation)
 	}
 
 	rm.(ReplicaMemory).Add(ReplicaSnapshot{

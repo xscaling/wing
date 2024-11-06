@@ -1,9 +1,12 @@
 package tuner
 
 import (
+	"context"
 	"math"
 	"sync"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type RuleType string
@@ -140,6 +143,13 @@ func (f *FluxTuner) GetName() string {
 
 func (f *FluxTuner) GetRecommendation(keyForAutoscaler string,
 	currentReplicas int32, desiredReplicas int32, preference interface{}) int32 {
+	logger := log.FromContext(context.TODO()).WithValues(
+		"tuner", f.GetName(),
+		"keyForAutoscaler", keyForAutoscaler,
+		"currentReplicas", currentReplicas,
+		"desiredReplicas", desiredReplicas,
+	)
+
 	fluxPreference, ok := preference.(FluxPreference)
 	if !ok {
 		fluxPreference = FluxPreference{}
@@ -167,24 +177,30 @@ func (f *FluxTuner) GetRecommendation(keyForAutoscaler string,
 	if isScaleUp {
 		rm, ok := f.historicalScaleUpReplicaMemory.Load(keyForAutoscaler)
 		if !ok {
+			logger.V(4).Info("Initialize scale up replica memory")
 			rm = NewSimpleReplicaMemory(DefaultReplicaMemoryMaxSize, DefaultReplicaMemoryRetention)
 			f.historicalScaleUpReplicaMemory.Store(keyForAutoscaler, rm)
 		}
 		limit := f.getScaleUpLimit(rm.(ReplicaMemory), currentReplicas, ruleSet)
 		if desiredReplicas > limit {
+			logger.V(2).Info("Scale up limit reached", "limit", limit)
 			desiredReplicas = limit
 		}
 	} else {
 		rm, ok := f.historicalScaleDownReplicaMemory.Load(keyForAutoscaler)
 		if !ok {
+			logger.V(4).Info("Initialize scale down replica memory")
 			rm = NewSimpleReplicaMemory(DefaultReplicaMemoryMaxSize, DefaultReplicaMemoryRetention)
 			f.historicalScaleDownReplicaMemory.Store(keyForAutoscaler, rm)
 		}
 		limit := f.getScaleDownLimit(rm.(ReplicaMemory), currentReplicas, ruleSet)
 		if desiredReplicas < limit {
+			logger.V(2).Info("Scale down limit reached", "limit", limit)
 			desiredReplicas = limit
 		}
 	}
+
+	logger.V(2).Info("Recommendation", "desiredReplicas", desiredReplicas)
 
 	return desiredReplicas
 }
