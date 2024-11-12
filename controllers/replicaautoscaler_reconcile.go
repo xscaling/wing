@@ -205,11 +205,7 @@ func (r *ReplicaAutoscalerReconciler) reconcileAutoscaling(logger logr.Logger,
 
 	now := time.Now()
 
-	replicatorContext := engine.ReplicatorContext{
-		Autoscaler:    autoscaler,
-		Scale:         scale,
-		ScalersOutput: make(map[string]engine.ScalerOutput),
-	}
+	replicatorContext := engine.NewReplicatorContext(autoscaler, scale)
 
 	var managedTargetStatus []string
 
