@@ -18,9 +18,9 @@ type ReplicaSnapshot struct {
 
 type ReplicaMemory interface {
 	Add(event ReplicaSnapshot)
-	GetMemorySince(since time.Time) []ReplicaSnapshot
-	GetDeltaSince(since time.Time) int32
-	GetFirstSnapshotAfter(since time.Time) *ReplicaSnapshot
+	GetMemorySince(since time.Time, jitterToleration time.Duration) []ReplicaSnapshot
+	GetDeltaSince(since time.Time, jitterToleration time.Duration) int32
+	GetFirstSnapshotAfter(since time.Time, jitterToleration time.Duration) *ReplicaSnapshot
 }
 
 type replicaMemory struct {
@@ -69,21 +69,23 @@ func (s *replicaMemory) Add(event ReplicaSnapshot) {
 	})
 }
 
-func (s *replicaMemory) GetMemorySince(since time.Time) []ReplicaSnapshot {
+func (s *replicaMemory) GetMemorySince(since time.Time, jitterToleration time.Duration) []ReplicaSnapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	sinceWithJitter := since.Add(-jitterToleration)
+
 	events := make([]ReplicaSnapshot, 0, len(s.events))
 	for _, e := range s.events {
-		if !e.Timestamp.Before(since) {
+		if !e.Timestamp.Before(sinceWithJitter) {
 			events = append(events, e)
 		}
 	}
 	return events
 }
 
-func (s *replicaMemory) GetDeltaSince(since time.Time) int32 {
-	events := s.GetMemorySince(since)
+func (s *replicaMemory) GetDeltaSince(since time.Time, jitterToleration time.Duration) int32 {
+	events := s.GetMemorySince(since, jitterToleration)
 	delta := int32(0)
 	if len(events) < 2 {
 		return 0
@@ -96,12 +98,14 @@ func (s *replicaMemory) GetDeltaSince(since time.Time) int32 {
 	return delta
 }
 
-func (s *replicaMemory) GetFirstSnapshotAfter(since time.Time) *ReplicaSnapshot {
+func (s *replicaMemory) GetFirstSnapshotAfter(since time.Time, jitterToleration time.Duration) *ReplicaSnapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	sinceWithJitter := since.Add(-jitterToleration)
+
 	for _, e := range s.events {
-		if e.Timestamp.After(since) {
+		if e.Timestamp.After(sinceWithJitter) {
 			return &e
 		}
 	}

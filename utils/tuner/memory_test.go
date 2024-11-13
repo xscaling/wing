@@ -22,7 +22,7 @@ func TestReplicaMemory(t *testing.T) {
 		}
 
 		// Test GetMemorySince
-		got := rm.GetMemorySince(now.Add(-25 * time.Second))
+		got := rm.GetMemorySince(now.Add(-25*time.Second), 0)
 		if len(got) != 2 {
 			t.Errorf("Expected 2 events, got %d", len(got))
 		}
@@ -50,7 +50,7 @@ func TestReplicaMemory(t *testing.T) {
 			Replicas:  2,
 		})
 
-		events := rm.GetMemorySince(now.Add(-3 * time.Minute))
+		events := rm.GetMemorySince(now.Add(-3*time.Minute), 0)
 		if len(events) != 1 {
 			t.Errorf("Expected 1 event after retention period, got %d", len(events))
 		}
@@ -68,7 +68,7 @@ func TestReplicaMemory(t *testing.T) {
 			})
 		}
 
-		events := rm.GetMemorySince(now.Add(-time.Hour))
+		events := rm.GetMemorySince(now.Add(-time.Hour), 0)
 		if len(events) != 3 {
 			t.Errorf("Expected 3 events (max size), got %d", len(events))
 		}
@@ -88,7 +88,7 @@ func TestReplicaMemory(t *testing.T) {
 		rm.Add(ReplicaSnapshot{Timestamp: time.Now().Add(-2 * time.Minute), Replicas: 2})
 		rm.Add(ReplicaSnapshot{Timestamp: time.Now().Add(-1 * time.Minute), Replicas: 1})
 
-		events := rm.GetMemorySince(time.Now().Add(-2*time.Minute - time.Second))
+		events := rm.GetMemorySince(time.Now().Add(-2*time.Minute-time.Second), 0)
 		if len(events) != 2 {
 			t.Errorf("Expected 2 events, got %d", len(events))
 		}
@@ -100,7 +100,7 @@ func TestReplicaMemory(t *testing.T) {
 		rm.Add(ReplicaSnapshot{Timestamp: time.Now().Add(-2 * time.Minute), Replicas: 2})
 		rm.Add(ReplicaSnapshot{Timestamp: time.Now().Add(-1 * time.Minute), Replicas: 1})
 
-		delta := rm.GetDeltaSince(time.Now().Add(-2*time.Minute - time.Second))
+		delta := rm.GetDeltaSince(time.Now().Add(-2*time.Minute-time.Second), 0)
 		if delta != -1 {
 			t.Errorf("Expected delta -1, got %d", delta)
 		}
@@ -108,9 +108,29 @@ func TestReplicaMemory(t *testing.T) {
 
 	t.Run("test get delta without enough events", func(t *testing.T) {
 		rm := NewSimpleReplicaMemory(3, time.Minute*10)
-		delta := rm.GetDeltaSince(time.Now())
+		delta := rm.GetDeltaSince(time.Now(), 0)
 		if delta != 0 {
 			t.Errorf("Expected delta 0, got %d", delta)
+		}
+	})
+
+	t.Run("test jitter toleration", func(t *testing.T) {
+		rm := NewSimpleReplicaMemory(5, time.Minute)
+		now := time.Now()
+
+		rm.Add(ReplicaSnapshot{Timestamp: now.Add(-31 * time.Second), Replicas: 1})
+		rm.Add(ReplicaSnapshot{Timestamp: now.Add(-29 * time.Second), Replicas: 2})
+
+		// Without jitter
+		events := rm.GetMemorySince(now.Add(-30*time.Second), 0)
+		if len(events) != 1 {
+			t.Errorf("Expected 1 event without jitter, got %d", len(events))
+		}
+
+		// With 2s jitter
+		events = rm.GetMemorySince(now.Add(-30*time.Second), 2*time.Second)
+		if len(events) != 2 {
+			t.Errorf("Expected 2 events with jitter, got %d", len(events))
 		}
 	})
 }
@@ -139,7 +159,7 @@ func BenchmarkReplicaMemory(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			rm.GetMemorySince(now)
+			rm.GetMemorySince(now, 0)
 		}
 	})
 
@@ -154,7 +174,7 @@ func BenchmarkReplicaMemory(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			rm.GetDeltaSince(now)
+			rm.GetDeltaSince(now, 0)
 		}
 	})
 }

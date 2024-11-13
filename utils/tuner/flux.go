@@ -92,6 +92,9 @@ type FluxOptions struct {
 	ReplicaMemoryMaxSize int `json:"replicaMemoryMaxSize" yaml:"replicaMemoryMaxSize"`
 	// default is 1 hour
 	ReplicaMemoryRetention time.Duration `json:"replicaMemoryRetention" yaml:"replicaMemoryRetention"`
+
+	// Used for getting the snapshot for cutoff time with jitter toleration
+	MemoryCutoffJitterToleration time.Duration `json:"memoryCutoffJitterToleration" yaml:"memoryCutoffJitterToleration"`
 }
 
 func NewDefaultFluxOptions() FluxOptions {
@@ -117,6 +120,9 @@ func (o FluxOptions) ApplyDefaults() FluxOptions {
 	}
 	if o.DefaultPreference.ScaleDownRuleSet == nil || len(o.DefaultPreference.ScaleDownRuleSet.Rules) == 0 {
 		o.DefaultPreference.ScaleDownRuleSet = DefaultScaleDownFluxRuleSet
+	}
+	if o.MemoryCutoffJitterToleration <= 0 {
+		o.MemoryCutoffJitterToleration = DefaultMemoryCutoffJitterToleration
 	}
 	return o
 }
@@ -147,6 +153,10 @@ var (
 			},
 		},
 	}
+)
+
+const (
+	DefaultMemoryCutoffJitterToleration = time.Second * 10
 )
 
 type FluxRuleSet struct {
@@ -291,7 +301,7 @@ func (f *FluxTuner) getScaleUpLimit(logger logr.Logger, replicaMemory ReplicaMem
 			continue
 		}
 		cutoff := time.Now().Add(-time.Duration(rule.PeriodSeconds) * time.Second)
-		snapshotAfterCutoff := replicaMemory.GetFirstSnapshotAfter(cutoff)
+		snapshotAfterCutoff := replicaMemory.GetFirstSnapshotAfter(cutoff, f.options.MemoryCutoffJitterToleration)
 		var replicasBase int32
 		if snapshotAfterCutoff != nil {
 			replicasBase = snapshotAfterCutoff.Replicas
@@ -329,7 +339,7 @@ func (f *FluxTuner) getScaleDownLimit(logger logr.Logger, replicaMemory ReplicaM
 			continue
 		}
 		cutoff := time.Now().Add(-time.Duration(rule.PeriodSeconds) * time.Second)
-		snapshotAfterCutoff := replicaMemory.GetFirstSnapshotAfter(cutoff)
+		snapshotAfterCutoff := replicaMemory.GetFirstSnapshotAfter(cutoff, f.options.MemoryCutoffJitterToleration)
 		var replicasBase int32
 		if snapshotAfterCutoff != nil {
 			replicasBase = snapshotAfterCutoff.Replicas
