@@ -16,3 +16,11 @@ type ReplicatorContext struct {
 	Scale         *autoscalingv1.Scale
 	ScalersOutput map[string]ScalerOutput
 }
+
+func NewReplicatorContext(autoscaler *wingv1.ReplicaAutoscaler, scale *autoscalingv1.Scale) ReplicatorContext {
+	return ReplicatorContext{
+		Autoscaler:    autoscaler,
+		Scale:         scale,
+		ScalersOutput: make(map[string]ScalerOutput),
+	}
+}

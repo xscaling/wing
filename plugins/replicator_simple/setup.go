@@ -4,12 +4,9 @@ import (
 	"fmt"
 
 	"github.com/xscaling/wing/core/engine"
+	"github.com/xscaling/wing/utils/tuner"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
-)
-
-const (
-	PluginName = "simple"
 )
 
 func init() {
@@ -26,13 +23,18 @@ func setup(c engine.Controller) error {
 		return fmt.Errorf("plugin config is required: ok %v err %v", ok, err)
 	}
 
+	c.AddReplicator(PluginName, NewReplicator(*config))
+	return nil
+}
+
+func NewReplicator(conf Config) *replicator {
 	r := &replicator{
-		config:                   *config,
-		logger:                   log.Log.WithName(PluginName),
-		eventRecorder:            c.GetEventRecorder(),
-		historicalRecommendation: make(map[string][]timestampedRecommendation),
+		config: conf,
+		logger: log.Log.WithName(PluginName),
 	}
 
-	c.AddReplicator("simple", r)
-	return nil
+	if !conf.DisableTuner {
+		r.flux = tuner.NewFluxTuner(conf.Flux)
+	}
+	return r
 }
