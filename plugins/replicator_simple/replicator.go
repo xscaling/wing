@@ -30,7 +30,11 @@ func (c Config) Validate() error {
 }
 
 type Settings struct {
-	FluxPreference *tuner.FluxPreference
+	FluxPreference *tuner.FluxPreference `json:"flux,omitempty" yaml:"flux,omitempty"`
+}
+
+func (s *Settings) Validate() error {
+	return nil
 }
 
 type replicator struct {
