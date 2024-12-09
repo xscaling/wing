@@ -1,7 +1,7 @@
 package simple
 
 import (
-	"encoding/json"
+	"github.com/xscaling/wing/utils"
 
 	wingv1 "github.com/xscaling/wing/api/v1"
 	"github.com/xscaling/wing/core/engine"
@@ -58,7 +58,7 @@ func (r *replicator) GetDesiredReplicas(ctx engine.ReplicatorContext) (int32, er
 
 	keyForAutoscaler := getUniqueKeyForAutoscaler(ctx.Autoscaler)
 	var settings Settings
-	err := json.Unmarshal(ctx.Autoscaler.Spec.ReplicatorSettings.Raw, &settings)
+	err := utils.ExtractRawExtension(ctx.Autoscaler.Spec.ReplicatorSettings, &settings)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal JSON into replicator setting")
 		return ctx.Autoscaler.Status.CurrentReplicas, err
