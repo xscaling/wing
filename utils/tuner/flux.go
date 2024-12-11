@@ -170,6 +170,8 @@ const (
 )
 
 type FluxRuleSet struct {
+	// Stabilization windows to prevent rapid fluctuations
+	StabilizationWindowSeconds *int32 `json:"stabilizationWindowSeconds" yaml:"stabilizationWindowSeconds"`
 	// The strategy to choose the rule to apply.
 	Strategy RuleStrategy `json:"strategy" yaml:"strategy"`
 	// Rules for various conditions.
@@ -244,7 +246,11 @@ func (f *FluxTuner) GetRecommendation(keyForAutoscaler string,
 		}
 
 		// 应用 stabilization window
-		cutoff := time.Now().Add(-f.options.ScaleUpStabilizationWindow)
+		stabilizationWindow := f.options.ScaleUpStabilizationWindow
+		if w := fluxPreference.ScaleUpRuleSet.StabilizationWindowSeconds; w != nil {
+			stabilizationWindow = time.Second * time.Duration(*w)
+		}
+		cutoff := time.Now().Add(-stabilizationWindow)
 		snapshots := rm.(ReplicaMemory).GetMemorySince(cutoff, f.options.MemoryCutoffJitterToleration)
 		if len(snapshots) > 0 {
 			// 在窗口期内取最小值以避免过度伸缩
@@ -269,7 +275,11 @@ func (f *FluxTuner) GetRecommendation(keyForAutoscaler string,
 		}
 
 		// 应用 stabilization window
-		cutoff := time.Now().Add(-f.options.ScaleDownStabilizationWindow)
+		stabilizationWindow := f.options.ScaleDownStabilizationWindow
+		if w := fluxPreference.ScaleDownRuleSet.StabilizationWindowSeconds; w != nil {
+			stabilizationWindow = time.Second * time.Duration(*w)
+		}
+		cutoff := time.Now().Add(-stabilizationWindow)
 		snapshots := rm.(ReplicaMemory).GetMemorySince(cutoff, f.options.MemoryCutoffJitterToleration)
 		if len(snapshots) > 0 {
 			// 在窗口期内取最大值以避免过度收缩
