@@ -138,8 +138,8 @@ func (o FluxOptions) ApplyDefaults() FluxOptions {
 }
 
 type FluxPreference struct {
-	ScaleUpRuleSet   *FluxRuleSet `json:"scaleUpRuleSet" yaml:"scaleUpRuleSet"`
-	ScaleDownRuleSet *FluxRuleSet `json:"scaleDownRuleSet" yaml:"scaleDownRuleSet"`
+	ScaleUpRuleSet   *FluxRuleSet `json:"scaleUpRuleSet,omitempty" yaml:"scaleUpRuleSet,omitempty"`
+	ScaleDownRuleSet *FluxRuleSet `json:"scaleDownRuleSet,omitempty" yaml:"scaleDownRuleSet,omitempty"`
 }
 
 var (
