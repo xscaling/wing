@@ -95,6 +95,10 @@ type FluxOptions struct {
 
 	// Used for getting the snapshot for cutoff time with jitter toleration
 	MemoryCutoffJitterToleration time.Duration `json:"memoryCutoffJitterToleration" yaml:"memoryCutoffJitterToleration"`
+
+	// Stabilization windows to prevent rapid fluctuations
+	ScaleUpStabilizationWindow   time.Duration `json:"scaleUpStabilizationWindow" yaml:"scaleUpStabilizationWindow"`
+	ScaleDownStabilizationWindow time.Duration `json:"scaleDownStabilizationWindow" yaml:"scaleDownStabilizationWindow"`
 }
 
 func NewDefaultFluxOptions() FluxOptions {
@@ -124,12 +128,18 @@ func (o FluxOptions) ApplyDefaults() FluxOptions {
 	if o.MemoryCutoffJitterToleration <= 0 {
 		o.MemoryCutoffJitterToleration = DefaultMemoryCutoffJitterToleration
 	}
+	if o.ScaleUpStabilizationWindow <= 0 {
+		o.ScaleUpStabilizationWindow = 3 * time.Minute
+	}
+	if o.ScaleDownStabilizationWindow <= 0 {
+		o.ScaleDownStabilizationWindow = 5 * time.Minute
+	}
 	return o
 }
 
 type FluxPreference struct {
-	ScaleUpRuleSet   *FluxRuleSet `json:"scaleUpRuleSet" yaml:"scaleUpRuleSet"`
-	ScaleDownRuleSet *FluxRuleSet `json:"scaleDownRuleSet" yaml:"scaleDownRuleSet"`
+	ScaleUpRuleSet   *FluxRuleSet `json:"scaleUpRuleSet,omitempty" yaml:"scaleUpRuleSet,omitempty"`
+	ScaleDownRuleSet *FluxRuleSet `json:"scaleDownRuleSet,omitempty" yaml:"scaleDownRuleSet,omitempty"`
 }
 
 var (
@@ -160,10 +170,12 @@ const (
 )
 
 type FluxRuleSet struct {
+	// Stabilization windows to prevent rapid fluctuations
+	StabilizationWindowSeconds *int32 `json:"stabilizationWindowSeconds,omitempty" yaml:"stabilizationWindowSeconds,omitempty"`
 	// The strategy to choose the rule to apply.
-	Strategy RuleStrategy `json:"strategy" yaml:"strategy"`
+	Strategy RuleStrategy `json:"strategy,omitempty" yaml:"strategy,omitempty"`
 	// Rules for various conditions.
-	Rules []FluxRule `json:"rules" yaml:"rules"`
+	Rules []FluxRule `json:"rules,omitempty" yaml:"rules,omitempty"`
 }
 
 type FluxRule struct {
@@ -232,18 +244,52 @@ func (f *FluxTuner) GetRecommendation(keyForAutoscaler string,
 			rm = f.newReplicaMemory()
 			f.historicalScaleUpReplicaMemory.Store(keyForAutoscaler, rm)
 		}
+
+		// 应用 stabilization window
+		stabilizationWindow := f.options.ScaleUpStabilizationWindow
+		if w := fluxPreference.ScaleUpRuleSet.StabilizationWindowSeconds; w != nil {
+			stabilizationWindow = time.Second * time.Duration(*w)
+		}
+		cutoff := time.Now().Add(-stabilizationWindow)
+		snapshots := rm.(ReplicaMemory).GetMemorySince(cutoff, f.options.MemoryCutoffJitterToleration)
+		if len(snapshots) > 0 {
+			// 在窗口期内取最小值以避免过度伸缩
+			stableReplicas := snapshots[0].Replicas
+			for _, snapshot := range snapshots {
+				stableReplicas = min(stableReplicas, snapshot.Replicas)
+			}
+			desiredReplicas = min(desiredReplicas, stableReplicas)
+		}
+
 		limit := f.getScaleUpLimit(logger, rm.(ReplicaMemory), currentReplicas, fluxPreference.ScaleUpRuleSet)
 		if limit != nil && desiredReplicas > *limit {
 			logger.V(2).Info("Scale up limit reached", "limit", limit)
 			desiredReplicas = *limit
 		}
-	} else {
+	} else if desiredReplicas < currentReplicas {
 		rm, ok := f.historicalScaleDownReplicaMemory.Load(keyForAutoscaler)
 		if !ok {
 			logger.V(4).Info("Initialize scale down replica memory")
 			rm = f.newReplicaMemory()
 			f.historicalScaleDownReplicaMemory.Store(keyForAutoscaler, rm)
 		}
+
+		// 应用 stabilization window
+		stabilizationWindow := f.options.ScaleDownStabilizationWindow
+		if w := fluxPreference.ScaleDownRuleSet.StabilizationWindowSeconds; w != nil {
+			stabilizationWindow = time.Second * time.Duration(*w)
+		}
+		cutoff := time.Now().Add(-stabilizationWindow)
+		snapshots := rm.(ReplicaMemory).GetMemorySince(cutoff, f.options.MemoryCutoffJitterToleration)
+		if len(snapshots) > 0 {
+			// 在窗口期内取最大值以避免过度收缩
+			stableReplicas := snapshots[0].Replicas
+			for _, snapshot := range snapshots {
+				stableReplicas = max(stableReplicas, snapshot.Replicas)
+			}
+			desiredReplicas = max(desiredReplicas, stableReplicas)
+		}
+
 		limit := f.getScaleDownLimit(logger, rm.(ReplicaMemory), currentReplicas, fluxPreference.ScaleDownRuleSet)
 		if limit != nil && desiredReplicas < *limit {
 			logger.V(2).Info("Scale down limit reached", "limit", limit)
@@ -252,7 +298,6 @@ func (f *FluxTuner) GetRecommendation(keyForAutoscaler string,
 	}
 
 	logger.V(2).Info("Recommendation", "desiredReplicas", desiredReplicas)
-
 	return desiredReplicas
 }
 
