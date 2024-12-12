@@ -171,11 +171,11 @@ const (
 
 type FluxRuleSet struct {
 	// Stabilization windows to prevent rapid fluctuations
-	StabilizationWindowSeconds *int32 `json:"stabilizationWindowSeconds" yaml:"stabilizationWindowSeconds"`
+	StabilizationWindowSeconds *int32 `json:"stabilizationWindowSeconds,omitempty" yaml:"stabilizationWindowSeconds,omitempty"`
 	// The strategy to choose the rule to apply.
-	Strategy RuleStrategy `json:"strategy" yaml:"strategy"`
+	Strategy RuleStrategy `json:"strategy,omitempty" yaml:"strategy,omitempty"`
 	// Rules for various conditions.
-	Rules []FluxRule `json:"rules" yaml:"rules"`
+	Rules []FluxRule `json:"rules,omitempty" yaml:"rules,omitempty"`
 }
 
 type FluxRule struct {
